@@ -1,6 +1,6 @@
 /* src/config.h.in.  Generated from configure.ac by autoheader.  */
 
-/* Enables debug output */
+/* Define to 1 if debug output should be enabled. */
 #undef DEBUG
 
 /* Define to 1 if you have the <dlfcn.h> header file. */
@@ -36,6 +36,9 @@
 /* Define to the sub-directory in which libtool stores uninstalled libraries.
    */
 #undef LT_OBJDIR
+
+/* Define to 1 if assertions should be disabled. */
+#undef NDEBUG
 
 /* Name of package */
 #undef PACKAGE
