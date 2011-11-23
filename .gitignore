@@ -2,3 +2,8 @@
 .project
 .cproject
 .settings
+/install
+/config.status
+/libtool
+/Makefile
+/config.log

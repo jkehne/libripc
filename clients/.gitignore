@@ -1,0 +1,7 @@
+/stamp-h2
+/Makefile
+/config.h
+.deps
+.libs
+/client.o
+/client
