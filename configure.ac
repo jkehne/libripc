@@ -20,7 +20,7 @@ AC_ARG_ENABLE([debug],AS_HELP_STRING([--enable-debug], [enable debug output (ove
 AS_IF([test "x$enable_debug" = "xyes"], [AC_DEFINE([DEBUG], [1], [Define to 1 if debug output should be enabled.])])
 AS_IF([test "x$enable_debug" = "xyes"], [CFLAGS="-O0 -g"])
 
-AC_CONFIG_HEADERS([src/config.h])
-AC_CONFIG_FILES(Makefile src/Makefile)
+AC_CONFIG_HEADERS([src/config.h clients/config.h])
+AC_CONFIG_FILES(Makefile src/Makefile clients/Makefile)
 AC_OUTPUT
 
