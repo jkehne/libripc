@@ -56,6 +56,9 @@ PROGRAMS = $(bin_PROGRAMS)
 am_client_OBJECTS = client.$(OBJEXT)
 client_OBJECTS = $(am_client_OBJECTS)
 client_DEPENDENCIES = ../src/libripc.la
+client_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
+	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(client_LDFLAGS) \
+	$(LDFLAGS) -o $@
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)/src
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
@@ -216,6 +219,7 @@ top_srcdir = @top_srcdir@
 client_SOURCES = client.c
 include_HEADERS = ../src/ripc.h common.h config.h
 client_LDADD = ../src/libripc.la
+client_LDFLAGS = -static
 all: config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-am
 
@@ -313,7 +317,7 @@ clean-binPROGRAMS:
 	rm -f $$list
 client$(EXEEXT): $(client_OBJECTS) $(client_DEPENDENCIES) 
 	@rm -f client$(EXEEXT)
-	$(LINK) $(client_OBJECTS) $(client_LDADD) $(LIBS)
+	$(client_LINK) $(client_OBJECTS) $(client_LDADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)

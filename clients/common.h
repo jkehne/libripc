@@ -3,13 +3,34 @@
 
 #include "config.h"
 #include <assert.h>
+#include <stdio.h>
+#include <stdlib.h>
 
-#define eprintf(x) fprintf(2, "%s (%s, line %u): %s\n", __PRETTY_FUNCTION__, __FILE__, __LINE__, x)
+#define ERROR(...) fprintf(stderr, "%s() (%s, line %u): ", __PRETTY_FUNCTION__, __FILE__, __LINE__); fprintf(stderr, __VA_ARGS__); fprintf(stderr,"\n")
+#define panic(...) fprintf(stderr, "%s() (%s, line %u): FATAL: ", __PRETTY_FUNCTION__, __FILE__, __LINE__); fprintf(stderr, __VA_ARGS__); fprintf(stderr,"\n"); exit(EXIT_FAILURE)
 
-#ifdef DEBUG
-#define dprintf(x) eprintf(x)
+#ifdef HAVE_DEBUG
+#define DEBUG(...) ERROR(__VA_ARGS__)
 #else
-#define dprintf(...)
+#define DEBUG(...)
 #endif
+
+#ifdef HAVE_STDBOOL_H
+# include <stdbool.h>
+#else
+# ifndef HAVE__BOOL
+#  ifdef __cplusplus
+typedef bool _Bool;
+#  else
+#   define _Bool signed char
+#  endif
+# endif
+# define bool _Bool
+# define false 0
+# define true 1
+# define __bool_true_false_are_defined 1
+#endif
+
+
 
 #endif /* COMMON_H_ */
