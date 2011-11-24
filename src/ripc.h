@@ -3,6 +3,9 @@
 
 #include <stdint.h>
 
+#define RECV_BUF_SIZE 65536
+#define NUM_RECV_BUFFERS 10
+
 #ifdef __cplusplus
 extern "C" {
 #endif

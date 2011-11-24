@@ -37,12 +37,12 @@ struct service_id {
 	uint16_t number;
 	struct ibv_cq *cq;
 	struct ibv_qp *qp;
+	struct ibv_comp_channel *cchannel;
 };
 
 struct library_context {
 	struct ibv_context *device_context;
 	struct service_id *services[UINT16_MAX];
-	struct ibv_comp_channel *cchannel;
 	struct ibv_pd *pd;
 };
 
