@@ -74,7 +74,7 @@ am__base_list = \
 am__installdirs = "$(DESTDIR)$(libdir)" "$(DESTDIR)$(includedir)"
 LTLIBRARIES = $(lib_LTLIBRARIES)
 libripc_la_LIBADD =
-am_libripc_la_OBJECTS = libripc.lo
+am_libripc_la_OBJECTS = ripc.lo memory.lo
 libripc_la_OBJECTS = $(am_libripc_la_OBJECTS)
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)/clients
 depcomp = $(SHELL) $(top_srcdir)/depcomp
@@ -213,7 +213,7 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 lib_LTLIBRARIES = libripc.la
-libripc_la_SOURCES = libripc.c
+libripc_la_SOURCES = ripc.c memory.c
 include_HEADERS = ripc.h common.h config.h
 all: config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-am
@@ -307,7 +307,8 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libripc.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/memory.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ripc.Plo@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<

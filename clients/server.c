@@ -6,8 +6,9 @@
 #include "common.h"
 
 int main(void) {
-	ripc_register_service_id(1);
-	char *msg = "Hello World!";
-	ripc_send_short(1, 4, (void *)msg, strlen(msg));
+	ripc_register_service_id(4);
+	void **short_items, **long_items;
+	DEBUG("Waiting for message");
+	ripc_receive(4, short_items,long_items);
 	return EXIT_SUCCESS;
 }

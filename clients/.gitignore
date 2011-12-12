@@ -5,3 +5,4 @@
 .libs
 /client.o
 /client
+/server

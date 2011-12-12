@@ -6,3 +6,5 @@
 /libripc.o
 /libripc.lo
 /libripc.la
+/memory.lo
+/ripc.lo

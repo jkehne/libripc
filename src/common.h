@@ -46,4 +46,6 @@ struct library_context {
 	struct ibv_pd *pd;
 };
 
+extern struct library_context context;
+
 #endif /* COMMON_H_ */

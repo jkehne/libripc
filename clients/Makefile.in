@@ -36,7 +36,7 @@ POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
 target_triplet = @target@
-bin_PROGRAMS = client$(EXEEXT)
+bin_PROGRAMS = client$(EXEEXT) server$(EXEEXT)
 subdir = clients
 DIST_COMMON = $(include_HEADERS) $(srcdir)/Makefile.am \
 	$(srcdir)/Makefile.in $(srcdir)/config.h.in
@@ -59,6 +59,12 @@ client_DEPENDENCIES = ../src/libripc.la
 client_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(client_LDFLAGS) \
 	$(LDFLAGS) -o $@
+am_server_OBJECTS = server.$(OBJEXT)
+server_OBJECTS = $(am_server_OBJECTS)
+server_DEPENDENCIES = ../src/libripc.la
+server_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
+	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(server_LDFLAGS) \
+	$(LDFLAGS) -o $@
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)/src
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
@@ -72,8 +78,8 @@ CCLD = $(CC)
 LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
 	$(LDFLAGS) -o $@
-SOURCES = $(client_SOURCES)
-DIST_SOURCES = $(client_SOURCES)
+SOURCES = $(client_SOURCES) $(server_SOURCES)
+DIST_SOURCES = $(client_SOURCES) $(server_SOURCES)
 am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
 am__vpath_adj = case $$p in \
     $(srcdir)/*) f=`echo "$$p" | sed "s|^$$srcdirstrip/||"`;; \
@@ -216,10 +222,13 @@ target_vendor = @target_vendor@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
+include_HEADERS = ../src/ripc.h config.h
 client_SOURCES = client.c
-include_HEADERS = ../src/ripc.h common.h config.h
 client_LDADD = ../src/libripc.la
 client_LDFLAGS = -static
+server_SOURCES = server.c
+server_LDADD = ../src/libripc.la
+server_LDFLAGS = -static
 all: config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-am
 
@@ -318,6 +327,9 @@ clean-binPROGRAMS:
 client$(EXEEXT): $(client_OBJECTS) $(client_DEPENDENCIES) 
 	@rm -f client$(EXEEXT)
 	$(client_LINK) $(client_OBJECTS) $(client_LDADD) $(LIBS)
+server$(EXEEXT): $(server_OBJECTS) $(server_DEPENDENCIES) 
+	@rm -f server$(EXEEXT)
+	$(server_LINK) $(server_OBJECTS) $(server_LDADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
@@ -326,6 +338,7 @@ distclean-compile:
 	-rm -f *.tab.c
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/client.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/server.Po@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
