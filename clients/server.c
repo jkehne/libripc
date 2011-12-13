@@ -8,9 +8,10 @@
 int main(void) {
 	ripc_register_service_id(4);
 	void **short_items = NULL, **long_items = NULL;
+	int num_items;
 	while(true) {
 		DEBUG("Waiting for message");
-		ripc_receive(4, &short_items,&long_items);
+		num_items = ripc_receive(4, &short_items,&long_items);
 		printf("Received message: %s\n",(char *)short_items[0]);
 		ripc_buf_free(short_items[0]);
 	}

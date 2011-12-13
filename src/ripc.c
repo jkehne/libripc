@@ -223,31 +223,21 @@ ripc_send_short(
 		uint32_t *length,
 		uint32_t num_items) {
 
-	if (length > RECV_BUF_SIZE) //TODO: minus header size
-		return -1;
+	if (length > (
+			RECV_BUF_SIZE
+			- sizeof(struct msg_header)
+			- sizeof(struct short_header) * num_items
+			))
+		return -1; //probably won't fit at receiving end either
 
-	//make sure send buffers are registered with the hardware
-	struct ibv_mr *mr = used_buf_list_get(buf);
-	void *tmp_buf;
-
-	if (!mr) { //not registered yet
-		DEBUG("mr not found in cache, creating new one");
-		mr = ripc_alloc_recv_buf(length);
-		tmp_buf = mr->addr;
-		memcpy(tmp_buf,buf,length);
-	} else {
-		DEBUG("Found mr in cache!");
-		used_buf_list_add(mr);
-		tmp_buf = buf;
-	}
-
-	assert(mr);
-	assert(mr->length >= length); //the hardware won't allow this anyway
+	uint32_t i;
 
 	//build packet header
 	struct ibv_mr *header_mr =
 			ripc_alloc_recv_buf(
-					sizeof(struct msg_header) + sizeof(struct short_header));
+					sizeof(struct msg_header)
+					+ sizeof(struct short_header) * num_items
+					);
 	struct msg_header *hdr = (struct msg_header *)header_mr->addr;
 	struct short_header *msg =
 			(struct short_header *)((uint64_t)hdr + sizeof(struct msg_header));
@@ -255,21 +245,50 @@ ripc_send_short(
 	hdr->type = RIPC_MSG_SEND;
 	hdr->from = src;
 	hdr->to = dest;
-	hdr->short_words = 1;
+	hdr->short_words = num_items;
 	hdr->long_words = 0;
 	hdr->return_bufs = 0;
 
-	msg->offset = 40 + sizeof(struct msg_header) + sizeof(struct short_header);
-	msg->size = length;
-
-	struct ibv_sge sge[2]; //what to send
+	struct ibv_sge sge[num_items + 1]; //+1 for header
 	sge[0].addr = (uint64_t)header_mr->addr;
 	sge[0].length = header_mr->length;
 	sge[0].lkey = header_mr->lkey;
-	sge[1].addr = (uint64_t)tmp_buf;
-	sge[1].length = length;
-	sge[1].lkey = mr->lkey;
 
+	uint32_t offset =
+			40 //skip GRH
+			+ sizeof(struct msg_header)
+			+ sizeof(struct short_header) * num_items;
+
+	for (i = 0; i < num_items; ++i) {
+
+		DEBUG("First message: offset %#x, length %u", offset, length[i]);
+		msg->offset = offset;
+		msg->size = length[i];
+
+		offset += length; //offset of next message item
+
+		//make sure send buffers are registered with the hardware
+		struct ibv_mr *mr = used_buf_list_get(buf[i]);
+		void *tmp_buf;
+
+		if (!mr) { //not registered yet
+			DEBUG("mr not found in cache, creating new one");
+			mr = ripc_alloc_recv_buf(length);
+			tmp_buf = mr->addr;
+			memcpy(tmp_buf,buf[i],length[i]);
+		} else {
+			DEBUG("Found mr in cache!");
+			used_buf_list_add(mr);
+			tmp_buf = buf[i];
+		}
+
+		assert(mr);
+		assert(mr->length >= length[i]); //the hardware won't allow it anyway
+
+		sge[i + 1].addr = (uint64_t)tmp_buf;
+		sge[i + 1].length = length[i];
+		sge[i + 1].lkey = mr->lkey;
+	}
 	struct ibv_ah *ah = ah_cache[dest]; //where to send it
 	if (!ah) {
 		struct ibv_ah_attr ah_attr;
@@ -283,7 +302,7 @@ ripc_send_short(
 	struct ibv_send_wr wr;
 	wr.next = NULL;
 	wr.opcode = IBV_WR_SEND;
-	wr.num_sge = 2;
+	wr.num_sge = num_items + 1;
 	wr.sg_list = &sge;
 	wr.wr_id = 0xdeadbeef; //TODO: Make this a counter?
 	wr.wr.ud.ah = ah;
@@ -294,13 +313,13 @@ ripc_send_short(
 #else
 	wr.send_flags = 0;
 #endif
+
 	DEBUG("Sending message containing %u items to lid %u, qpn %u using qkey %d",
 			wr.num_sge,
 			dest,
 			wr.wr.ud.remote_qpn,
 			wr.wr.ud.remote_qkey);
 #ifdef HAVE_DEBUG
-	uint32_t i;
 	for (i = 0; i < wr.num_sge; ++i) {
 	DEBUG("Item %u: address: %p, length %u",
 			i,
@@ -335,6 +354,7 @@ ripc_send_long(
 		void *buf,
 		uint32_t length) {
 
+	return 0;
 }
 
 uint8_t
@@ -381,5 +401,5 @@ ripc_receive(
 	free(wr->sg_list);
 	free(wr);
 
-	return 0;
+	return hdr->short_words + hdr->long_words;
 }
