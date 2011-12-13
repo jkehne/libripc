@@ -76,6 +76,7 @@ bool init(void) {
 }
 
 uint16_t ripc_register_random_service_id(void) {
+
 	init();
 
 	uint16_t service_id;
@@ -86,7 +87,9 @@ uint16_t ripc_register_random_service_id(void) {
 
 	return service_id;
 }
+
 uint8_t ripc_register_service_id(int service_id) {
+
 	init();
 	DEBUG("Allocating service ID %u", service_id);
 
@@ -212,7 +215,14 @@ uint8_t ripc_register_service_id(int service_id) {
 	return true;
 }
 
-uint8_t ripc_send_short(uint16_t src, uint16_t dest, void *buf, uint32_t length) {
+uint8_t
+ripc_send_short(
+		uint16_t src,
+		uint16_t dest,
+		void **buf,
+		uint32_t *length,
+		uint32_t num_items) {
+
 	if (length > RECV_BUF_SIZE) //TODO: minus header size
 		return -1;
 
@@ -318,11 +328,21 @@ uint8_t ripc_send_short(uint16_t src, uint16_t dest, void *buf, uint32_t length)
 	return bad_wr ? -1 : 0;
 }
 
-uint8_t ripc_send_long(uint16_t src, uint16_t dest, void *buf, uint32_t length) {
+uint8_t
+ripc_send_long(
+		uint16_t src,
+		uint16_t dest,
+		void *buf,
+		uint32_t length) {
 
 }
 
-uint8_t ripc_receive(uint16_t service_id, void ***short_items, void ***long_items) {
+uint8_t
+ripc_receive(
+		uint16_t service_id,
+		void ***short_items,
+		void ***long_items) {
+
 	struct ibv_wc wc;
 	void *ctx;
 	struct ibv_cq *cq;
