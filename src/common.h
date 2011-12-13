@@ -46,6 +46,27 @@ struct library_context {
 	struct ibv_pd *pd;
 };
 
+enum msg_type {
+	RIPC_MSG_SEND,
+	RIPC_MSG_INTERRUPT,
+	RIPC_MSG_RESOLVE_REQ,
+	RIPC_MST_RESOLVE_REPLY
+};
+
+struct msg_header {
+	enum msg_type type;
+	uint16_t from;
+	uint16_t to;
+	uint16_t short_words;
+	uint16_t long_words;
+	uint16_t return_bufs;
+};
+
+struct short_header {
+	uint32_t offset;
+	uint32_t size;
+};
+
 extern struct library_context context;
 
 #endif /* COMMON_H_ */

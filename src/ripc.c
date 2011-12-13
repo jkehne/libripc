@@ -1,4 +1,5 @@
 #include <time.h>
+#include <unistd.h>
 #include "ripc.h"
 #include "common.h"
 #include "memory.h"
@@ -95,11 +96,9 @@ uint8_t ripc_register_service_id(int service_id) {
 	if (context.services[service_id] != NULL)
 		return false; //already allocated
 
-	if (context.services[service_id] == NULL) {
-		context.services[service_id] =
-			(struct service_id *)malloc(sizeof(struct service_id));
-		memset(context.services[service_id],0,sizeof(struct service_id));
-	}
+	context.services[service_id] =
+		(struct service_id *)malloc(sizeof(struct service_id));
+	memset(context.services[service_id],0,sizeof(struct service_id));
 	service_context = context.services[service_id];
 
 	service_context->number = service_id;
@@ -151,7 +150,7 @@ uint8_t ripc_register_service_id(int service_id) {
 		free(service_context);
 		return false;
 	} else {
-		DEBUG("Allocated queue pair: %u", service_context->qp->handle);
+		DEBUG("Allocated queue pair: %u", service_context->qp->qp_num);
 	}
 
 	struct ibv_qp_attr attr;
@@ -173,7 +172,7 @@ uint8_t ripc_register_service_id(int service_id) {
 		free(service_context);
 		return false;
 	} else {
-		DEBUG("Modified state of QP %u to INIT",service_context->qp->handle);
+		DEBUG("Modified state of QP %u to INIT",service_context->qp->qp_num);
 	}
 
 	attr.qp_state = IBV_QPS_RTR;
@@ -185,7 +184,7 @@ uint8_t ripc_register_service_id(int service_id) {
 		free(service_context);
 		return false;
 	} else {
-		DEBUG("Modified state of QP %u to RTR",service_context->qp->handle);
+		DEBUG("Modified state of QP %u to RTR",service_context->qp->qp_num);
 	}
 
 	attr.qp_state = IBV_QPS_RTS;
@@ -198,32 +197,16 @@ uint8_t ripc_register_service_id(int service_id) {
 		free(service_context);
 		return false;
 	} else {
-		DEBUG("Modified state of QP %u to RTS",service_context->qp->handle);
+		DEBUG("Modified state of QP %u to RTS",service_context->qp->qp_num);
 	}
 
-	struct ibv_mr *mr = ripc_alloc_recv_buf(RECV_BUF_SIZE * NUM_RECV_BUFFERS);
-	struct ibv_sge *list = malloc(sizeof(struct ibv_sge));
-	struct ibv_recv_wr *wr, *bad_wr;
-	wr = malloc(sizeof(struct ibv_recv_wr));
-	uint64_t ptr = (uint64_t)mr->addr;
+#ifdef HAVE_DEBUG
+	ibv_query_qp(service_context->qp,&attr,~0,&init_attr);
+	DEBUG("qkey of QP %u is %d", service_context->qp->qp_num, attr.qkey);
+#endif
 
 	for (i = 0; i < NUM_RECV_BUFFERS; ++i) {
-		list->addr = ptr + i * RECV_BUF_SIZE;
-		list->length = RECV_BUF_SIZE;
-		list->lkey = mr->lkey;
-
-		wr->wr_id = (uint64_t)wr;
-		wr->sg_list = list;
-		wr->num_sge = 1;
-		wr->next = NULL;
-
-		if (ibv_post_recv(service_context->qp, wr, &bad_wr)) {
-			ERROR("Failed to post receive item to QP %u!", service_context->qp->handle);
-		} else {
-			DEBUG("Posted receive buffer at address %p to QP %u",
-					ptr + i * RECV_BUF_SIZE,
-					service_context->qp->handle);
-		}
+		post_new_recv_buf(service_context);
 	}
 
 	return true;
@@ -233,21 +216,49 @@ uint8_t ripc_send_short(uint16_t src, uint16_t dest, void *buf, uint32_t length)
 	if (length > RECV_BUF_SIZE) //TODO: minus header size
 		return -1;
 
+	//make sure send buffers are registered with the hardware
 	struct ibv_mr *mr = used_buf_list_get(buf);
+	void *tmp_buf;
 
 	if (!mr) { //not registered yet
-		void *tmp_buf = valloc(length); //align, just in case
+		DEBUG("mr not found in cache, creating new one");
+		mr = ripc_alloc_recv_buf(length);
+		tmp_buf = mr->addr;
 		memcpy(tmp_buf,buf,length);
-		mr = ripc_buf_register(tmp_buf, length);
+	} else {
+		DEBUG("Found mr in cache!");
+		used_buf_list_add(mr);
+		tmp_buf = buf;
 	}
 
 	assert(mr);
 	assert(mr->length >= length); //the hardware won't allow this anyway
 
-	struct ibv_sge sge; //what to send
-	sge.addr = (uint64_t)buf;
-	sge.length = length;
-	sge.lkey = mr->lkey;
+	//build packet header
+	struct ibv_mr *header_mr =
+			ripc_alloc_recv_buf(
+					sizeof(struct msg_header) + sizeof(struct short_header));
+	struct msg_header *hdr = (struct msg_header *)header_mr->addr;
+	struct short_header *msg =
+			(struct short_header *)((uint64_t)hdr + sizeof(struct msg_header));
+
+	hdr->type = RIPC_MSG_SEND;
+	hdr->from = src;
+	hdr->to = dest;
+	hdr->short_words = 1;
+	hdr->long_words = 0;
+	hdr->return_bufs = 0;
+
+	msg->offset = 40 + sizeof(struct msg_header) + sizeof(struct short_header);
+	msg->size = length;
+
+	struct ibv_sge sge[2]; //what to send
+	sge[0].addr = (uint64_t)header_mr->addr;
+	sge[0].length = header_mr->length;
+	sge[0].lkey = header_mr->lkey;
+	sge[1].addr = (uint64_t)tmp_buf;
+	sge[1].length = length;
+	sge[1].lkey = mr->lkey;
 
 	struct ibv_ah *ah = ah_cache[dest]; //where to send it
 	if (!ah) {
@@ -258,19 +269,51 @@ uint8_t ripc_send_short(uint16_t src, uint16_t dest, void *buf, uint32_t length)
 		assert(ah);
 		ah_cache[dest] = ah;
 	}
+
 	struct ibv_send_wr wr;
 	wr.next = NULL;
 	wr.opcode = IBV_WR_SEND;
-	wr.num_sge = 1;
+	wr.num_sge = 2;
 	wr.sg_list = &sge;
 	wr.wr_id = 0xdeadbeef; //TODO: Make this a counter?
 	wr.wr.ud.ah = ah;
-	wr.wr.ud.remote_qkey = dest;
-	wr.wr.ud.remote_qpn = 1; //TODO: Make this dynamic
+	wr.wr.ud.remote_qkey = (uint32_t)dest;
+	wr.wr.ud.remote_qpn = 524362; //TODO: Make this dynamic
+#ifdef HAVE_DEBUG
+	wr.send_flags = IBV_SEND_SIGNALED;
+#else
+	wr.send_flags = 0;
+#endif
+	DEBUG("Sending message containing %u items to lid %u, qpn %u using qkey %d",
+			wr.num_sge,
+			dest,
+			wr.wr.ud.remote_qpn,
+			wr.wr.ud.remote_qkey);
+#ifdef HAVE_DEBUG
+	uint32_t i;
+	for (i = 0; i < wr.num_sge; ++i) {
+	DEBUG("Item %u: address: %p, length %u",
+			i,
+			wr.sg_list[i].addr,
+			wr.sg_list[i].length);
+	}
+#endif
 
 	struct ibv_send_wr **bad_wr = NULL;
 
-	ibv_post_send(context.services[src]->qp, &wr, bad_wr);
+	int ret = ibv_post_send(context.services[src]->qp, &wr, bad_wr);
+
+	if (bad_wr) {
+		ERROR("Failed to post send!");
+	}
+
+#ifdef HAVE_DEBUG
+	struct ibv_wc wc;
+	while (!(ibv_poll_cq(context.services[src]->cq, 1, &wc))); //polling is probably faster here
+	ibv_ack_cq_events(context.services[src]->cq, 1);
+	DEBUG("received completion message!");
+	DEBUG("Result: %d", wc.status);
+#endif
 
 	return bad_wr ? -1 : 0;
 }
@@ -279,23 +322,44 @@ uint8_t ripc_send_long(uint16_t src, uint16_t dest, void *buf, uint32_t length) 
 
 }
 
-uint8_t ripc_receive(uint16_t service_id, void *short_items[], void *long_items[]) {
-	struct ibv_wc *wc;
+uint8_t ripc_receive(uint16_t service_id, void ***short_items, void ***long_items) {
+	struct ibv_wc wc;
 	void *ctx;
 	struct ibv_cq *cq;
+	uint32_t i;
 
-	ibv_get_cq_event(context.services[service_id]->cchannel,
-			&cq,
-			ctx);
+	do {
+		ibv_get_cq_event(context.services[service_id]->cchannel,
+		&cq,
+		&ctx);
 
-	assert(cq == context.services[service_id]->cq);
+		assert(cq == context.services[service_id]->cq);
 
-	ibv_ack_cq_events(context.services[service_id]->cq, 1);
-	ibv_req_notify_cq(context.services[service_id]->cq, 0);
+		ibv_ack_cq_events(context.services[service_id]->cq, 1);
+		ibv_req_notify_cq(context.services[service_id]->cq, 0);
 
-	ibv_poll_cq(context.services[service_id]->cq, 1, wc);
+	} while (!(ibv_poll_cq(context.services[service_id]->cq, 1, &wc)));
 
-	struct ibv_recv_wr *wr = (struct ibv_recv_wr *)(wc->wr_id);
-	short_items = malloc(sizeof(void *));
-	short_items[0] = (void *)wr->sg_list->addr;
+	DEBUG("received!");
+
+	post_new_recv_buf(context.services[service_id]);
+
+	struct ibv_recv_wr *wr = (struct ibv_recv_wr *)(wc.wr_id);
+	struct msg_header *hdr = (struct msg_header *)(wr->sg_list->addr + 40);
+	struct short_header *msg =
+			(struct short_header *)(wr->sg_list->addr
+					+ 40 //skip GRH
+					+ sizeof(struct msg_header));
+
+	assert(hdr->to == service_id);
+
+	*short_items = malloc(sizeof(void *) * hdr->short_words);
+	for (i = 0; i < hdr->short_words; ++i) {
+		*short_items[i] = (void *)(wr->sg_list->addr + msg[i].offset);
+	}
+
+	free(wr->sg_list);
+	free(wr);
+
+	return 0;
 }

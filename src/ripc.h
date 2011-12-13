@@ -19,7 +19,7 @@ void ripc_buf_free(void *buf);
 
 uint8_t ripc_send_short(uint16_t src, uint16_t dest, void *buf, uint32_t length);
 uint8_t ripc_send_long(uint16_t src, uint16_t dest, void *buf, uint32_t length);
-uint8_t ripc_receive(uint16_t service_id, void *short_items[], void *long_items[]);
+uint8_t ripc_receive(uint16_t service_id, void ***short_items, void ***long_items);
 
 #ifdef __cplusplus
 } //extern "C"

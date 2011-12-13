@@ -64,12 +64,12 @@ void free_buf_list_add(struct ibv_mr *item) {
 	return;
 }
 
-struct ibv_mr *free_buf_list_get(void *addr) {
+struct ibv_mr *free_buf_list_get(size_t size) {
 	struct mem_buf_list *ptr = avaliable_buffers;
 	struct mem_buf_list *prev = NULL;
 
 	while(ptr) {
-		if (ptr->mr->addr == addr) {
+		if (ptr->mr->length >= size) {
 			if (prev)
 				prev->next = ptr->next;
 			else //first element in list
@@ -86,34 +86,23 @@ struct ibv_mr *free_buf_list_get(void *addr) {
 }
 
 struct ibv_mr *ripc_alloc_recv_buf(size_t size) {
-	//todo: Replace with a slab allocator
+	struct ibv_mr *mr;
 
-	void *buf = valloc(size);
-	//valloc is like malloc, but aligned to page boundary
-	//+40 for grh
-
-	if (buf != NULL) {
-		memset(buf, 0, size);
-		struct ibv_mr *mr = ibv_reg_mr(
-				context.pd,
-				buf,
-				size,
-				IBV_ACCESS_LOCAL_WRITE);
+	mr = free_buf_list_get(size);
+	if (mr) {
+		DEBUG("Got hit in free list!");
 		used_buf_list_add(mr);
 		return mr;
 	}
 
-	return NULL;
-}
+	//none found in cache, so create a new one
 
-void *ripc_buf_alloc(size_t size) {
 	void *buf = valloc(size);
 	//valloc is like malloc, but aligned to page boundary
-	//+40 for grh
 
-	if (buf != NULL) {
+	if (buf) {
 		memset(buf, 0, size);
-		struct ibv_mr *mr = ibv_reg_mr(
+		mr = ibv_reg_mr(
 				context.pd,
 				buf,
 				size,
@@ -121,15 +110,23 @@ void *ripc_buf_alloc(size_t size) {
 				IBV_ACCESS_REMOTE_READ |
 				IBV_ACCESS_REMOTE_WRITE);
 		used_buf_list_add(mr);
-		return mr->addr;
+		return mr;
 	}
 
-	return NULL;
+	return NULL; //allocation failed
+}
+
+void *ripc_buf_alloc(size_t size) {
+	struct ibv_mr *mr = ripc_alloc_recv_buf(size);
+	return mr ? mr->addr : NULL;
 }
 
 void ripc_buf_free(void *buf) {
 	struct ibv_mr *mr = used_buf_list_get(buf);
-	free_buf_list_add(mr);
+	if(!mr)
+		mr = used_buf_list_get((void *)((uint64_t)buf - 40));
+	if (mr)
+		free_buf_list_add(mr);
 }
 
 struct ibv_mr *ripc_buf_register(void *buf, uint32_t size) {
@@ -142,4 +139,32 @@ struct ibv_mr *ripc_buf_register(void *buf, uint32_t size) {
 			IBV_ACCESS_REMOTE_WRITE);
 	used_buf_list_add(mr);
 	return mr;
+}
+
+void post_new_recv_buf(struct service_id *service_context) {
+	struct ibv_mr *mr;
+	struct ibv_sge *list;
+	struct ibv_recv_wr *wr, *bad_wr;
+	uint32_t i;
+
+	mr = ripc_alloc_recv_buf(RECV_BUF_SIZE);
+
+	list = malloc(sizeof(struct ibv_sge));
+	list->addr = (uint64_t)mr->addr;
+	list->length = mr->length;
+	list->lkey = mr->lkey;
+
+	wr = malloc(sizeof(struct ibv_recv_wr));
+	wr->wr_id = (uint64_t)wr;
+	wr->sg_list = list;
+	wr->num_sge = 1;
+	wr->next = NULL;
+
+	if (ibv_post_recv(service_context->qp, wr, &bad_wr)) {
+		ERROR("Failed to post receive item to QP %u!", service_context->qp->qp_num);
+	} else {
+		DEBUG("Posted receive buffer at address %p to QP %u",
+				mr->addr,
+				service_context->qp->qp_num);
+	}
 }
