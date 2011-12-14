@@ -15,7 +15,8 @@ struct mem_buf_list {
 };
 
 struct mem_buf_list *used_buffers = NULL;
-struct mem_buf_list *avaliable_buffers = NULL;
+struct mem_buf_list *available_buffers = NULL;
+struct mem_buf_list *available_buffers_tail = NULL;
 
 void used_buf_list_add(struct ibv_mr *item) {
 	struct mem_buf_list *container = malloc(sizeof(struct mem_buf_list));
@@ -35,7 +36,8 @@ struct ibv_mr *used_buf_list_get(void *addr) {
 	struct mem_buf_list *prev = NULL;
 
 	while(ptr) {
-		if (ptr->mr->addr == addr) {
+		if (((uint64_t)addr >= (uint64_t)ptr->mr->addr)
+				&& ((uint64_t)addr <= (uint64_t)ptr->mr->addr + ptr->mr->length)) {
 			if (prev)
 				prev->next = ptr->next;
 			else //first element in list
@@ -54,18 +56,19 @@ struct ibv_mr *used_buf_list_get(void *addr) {
 void free_buf_list_add(struct ibv_mr *item) {
 	struct mem_buf_list *container = malloc(sizeof(struct mem_buf_list));
 	container->mr = item;
-	if (avaliable_buffers == NULL) {
+	if (available_buffers_tail == NULL) {
 		container->next = NULL;
-		avaliable_buffers = container;
+		available_buffers = container;
+		available_buffers_tail = container;
 	} else {
-		container->next = avaliable_buffers;
-		avaliable_buffers = container;
+		available_buffers_tail->next = container;
+		available_buffers_tail = container;
 	}
 	return;
 }
 
 struct ibv_mr *free_buf_list_get(size_t size) {
-	struct mem_buf_list *ptr = avaliable_buffers;
+	struct mem_buf_list *ptr = available_buffers;
 	struct mem_buf_list *prev = NULL;
 
 	while(ptr) {
@@ -73,8 +76,13 @@ struct ibv_mr *free_buf_list_get(size_t size) {
 			if (prev)
 				prev->next = ptr->next;
 			else //first element in list
-				avaliable_buffers = ptr->next;
+				available_buffers = ptr->next;
 				//NOTE: If ptr is the only element, then ptr->next is NULL
+			if (ptr == available_buffers_tail) {
+				available_buffers_tail = prev;
+				if (prev)
+					prev->next = NULL;
+			}
 			struct ibv_mr *ret = ptr->mr;
 			free(ptr);
 			return ret;
@@ -123,8 +131,6 @@ void *ripc_buf_alloc(size_t size) {
 
 void ripc_buf_free(void *buf) {
 	struct ibv_mr *mr = used_buf_list_get(buf);
-	if(!mr)
-		mr = used_buf_list_get((void *)((uint64_t)buf - 40));
 	if (mr)
 		free_buf_list_add(mr);
 }

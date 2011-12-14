@@ -35,19 +35,26 @@ typedef bool _Bool;
 
 struct service_id {
 	uint16_t number;
-	struct ibv_cq *cq;
+	struct ibv_cq *send_cq;
+	struct ibv_cq *recv_cq;
 	struct ibv_qp *qp;
 	struct ibv_comp_channel *cchannel;
 };
 
+struct remote_context {
+	uint32_t qp_num;
+	struct ibv_ah *ah;
+};
+
 struct library_context {
 	struct ibv_context *device_context;
-	struct service_id *services[UINT16_MAX];
 	struct ibv_pd *pd;
+	struct service_id *services[UINT16_MAX];
+	struct remote_context *remotes[UINT16_MAX];
 };
 
 enum msg_type {
-	RIPC_MSG_SEND,
+	RIPC_MSG_SEND = 0xdeadbeef,
 	RIPC_MSG_INTERRUPT,
 	RIPC_MSG_RESOLVE_REQ,
 	RIPC_MST_RESOLVE_REPLY

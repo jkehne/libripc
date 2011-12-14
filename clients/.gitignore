@@ -6,3 +6,5 @@
 /client.o
 /client
 /server
+/ripc_pingpong_server
+/ripc_pingpong_client

@@ -36,7 +36,8 @@ POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
 target_triplet = @target@
-bin_PROGRAMS = client$(EXEEXT) server$(EXEEXT)
+bin_PROGRAMS = client$(EXEEXT) server$(EXEEXT) \
+	ripc_pingpong_server$(EXEEXT) ripc_pingpong_client$(EXEEXT)
 subdir = clients
 DIST_COMMON = $(include_HEADERS) $(srcdir)/Makefile.am \
 	$(srcdir)/Makefile.in $(srcdir)/config.h.in
@@ -59,6 +60,18 @@ client_DEPENDENCIES = ../src/libripc.la
 client_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(client_LDFLAGS) \
 	$(LDFLAGS) -o $@
+am_ripc_pingpong_client_OBJECTS = ripc_pingpong_client.$(OBJEXT)
+ripc_pingpong_client_OBJECTS = $(am_ripc_pingpong_client_OBJECTS)
+ripc_pingpong_client_DEPENDENCIES = ../src/libripc.la
+ripc_pingpong_client_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
+	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
+	$(ripc_pingpong_client_LDFLAGS) $(LDFLAGS) -o $@
+am_ripc_pingpong_server_OBJECTS = ripc_pingpong_server.$(OBJEXT)
+ripc_pingpong_server_OBJECTS = $(am_ripc_pingpong_server_OBJECTS)
+ripc_pingpong_server_DEPENDENCIES = ../src/libripc.la
+ripc_pingpong_server_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
+	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
+	$(ripc_pingpong_server_LDFLAGS) $(LDFLAGS) -o $@
 am_server_OBJECTS = server.$(OBJEXT)
 server_OBJECTS = $(am_server_OBJECTS)
 server_DEPENDENCIES = ../src/libripc.la
@@ -78,8 +91,10 @@ CCLD = $(CC)
 LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
 	$(LDFLAGS) -o $@
-SOURCES = $(client_SOURCES) $(server_SOURCES)
-DIST_SOURCES = $(client_SOURCES) $(server_SOURCES)
+SOURCES = $(client_SOURCES) $(ripc_pingpong_client_SOURCES) \
+	$(ripc_pingpong_server_SOURCES) $(server_SOURCES)
+DIST_SOURCES = $(client_SOURCES) $(ripc_pingpong_client_SOURCES) \
+	$(ripc_pingpong_server_SOURCES) $(server_SOURCES)
 am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
 am__vpath_adj = case $$p in \
     $(srcdir)/*) f=`echo "$$p" | sed "s|^$$srcdirstrip/||"`;; \
@@ -222,13 +237,19 @@ target_vendor = @target_vendor@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-include_HEADERS = ../src/ripc.h config.h
+include_HEADERS = ../src/ripc.h config.h common.h
 client_SOURCES = client.c
 client_LDADD = ../src/libripc.la
 client_LDFLAGS = -static
 server_SOURCES = server.c
 server_LDADD = ../src/libripc.la
 server_LDFLAGS = -static
+ripc_pingpong_server_SOURCES = ripc_pingpong_server.c
+ripc_pingpong_server_LDADD = ../src/libripc.la
+ripc_pingpong_server_LDFLAGS = -static
+ripc_pingpong_client_SOURCES = ripc_pingpong_client.c
+ripc_pingpong_client_LDADD = ../src/libripc.la
+ripc_pingpong_client_LDFLAGS = -static
 all: config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-am
 
@@ -327,6 +348,12 @@ clean-binPROGRAMS:
 client$(EXEEXT): $(client_OBJECTS) $(client_DEPENDENCIES) 
 	@rm -f client$(EXEEXT)
 	$(client_LINK) $(client_OBJECTS) $(client_LDADD) $(LIBS)
+ripc_pingpong_client$(EXEEXT): $(ripc_pingpong_client_OBJECTS) $(ripc_pingpong_client_DEPENDENCIES) 
+	@rm -f ripc_pingpong_client$(EXEEXT)
+	$(ripc_pingpong_client_LINK) $(ripc_pingpong_client_OBJECTS) $(ripc_pingpong_client_LDADD) $(LIBS)
+ripc_pingpong_server$(EXEEXT): $(ripc_pingpong_server_OBJECTS) $(ripc_pingpong_server_DEPENDENCIES) 
+	@rm -f ripc_pingpong_server$(EXEEXT)
+	$(ripc_pingpong_server_LINK) $(ripc_pingpong_server_OBJECTS) $(ripc_pingpong_server_LDADD) $(LIBS)
 server$(EXEEXT): $(server_OBJECTS) $(server_DEPENDENCIES) 
 	@rm -f server$(EXEEXT)
 	$(server_LINK) $(server_OBJECTS) $(server_LDADD) $(LIBS)
@@ -338,6 +365,8 @@ distclean-compile:
 	-rm -f *.tab.c
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/client.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ripc_pingpong_client.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ripc_pingpong_server.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/server.Po@am__quote@
 
 .c.o:
