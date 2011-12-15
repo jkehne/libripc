@@ -37,7 +37,9 @@ build_triplet = @build@
 host_triplet = @host@
 target_triplet = @target@
 bin_PROGRAMS = client$(EXEEXT) server$(EXEEXT) \
-	ripc_pingpong_server$(EXEEXT) ripc_pingpong_client$(EXEEXT)
+	ripc_pingpong_server$(EXEEXT) ripc_pingpong_client$(EXEEXT) \
+	socket_pingpong_server$(EXEEXT) \
+	socket_pingpong_client$(EXEEXT)
 subdir = clients
 DIST_COMMON = $(include_HEADERS) $(srcdir)/Makefile.am \
 	$(srcdir)/Makefile.in $(srcdir)/config.h.in
@@ -78,6 +80,18 @@ server_DEPENDENCIES = ../src/libripc.la
 server_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(server_LDFLAGS) \
 	$(LDFLAGS) -o $@
+am_socket_pingpong_client_OBJECTS = socket_pingpong_client.$(OBJEXT)
+socket_pingpong_client_OBJECTS = $(am_socket_pingpong_client_OBJECTS)
+socket_pingpong_client_DEPENDENCIES = ../src/libripc.la
+socket_pingpong_client_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
+	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
+	$(socket_pingpong_client_LDFLAGS) $(LDFLAGS) -o $@
+am_socket_pingpong_server_OBJECTS = socket_pingpong_server.$(OBJEXT)
+socket_pingpong_server_OBJECTS = $(am_socket_pingpong_server_OBJECTS)
+socket_pingpong_server_DEPENDENCIES = ../src/libripc.la
+socket_pingpong_server_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
+	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
+	$(socket_pingpong_server_LDFLAGS) $(LDFLAGS) -o $@
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)/src
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
@@ -92,9 +106,13 @@ LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
 	$(LDFLAGS) -o $@
 SOURCES = $(client_SOURCES) $(ripc_pingpong_client_SOURCES) \
-	$(ripc_pingpong_server_SOURCES) $(server_SOURCES)
+	$(ripc_pingpong_server_SOURCES) $(server_SOURCES) \
+	$(socket_pingpong_client_SOURCES) \
+	$(socket_pingpong_server_SOURCES)
 DIST_SOURCES = $(client_SOURCES) $(ripc_pingpong_client_SOURCES) \
-	$(ripc_pingpong_server_SOURCES) $(server_SOURCES)
+	$(ripc_pingpong_server_SOURCES) $(server_SOURCES) \
+	$(socket_pingpong_client_SOURCES) \
+	$(socket_pingpong_server_SOURCES)
 am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
 am__vpath_adj = case $$p in \
     $(srcdir)/*) f=`echo "$$p" | sed "s|^$$srcdirstrip/||"`;; \
@@ -250,6 +268,12 @@ ripc_pingpong_server_LDFLAGS = -static
 ripc_pingpong_client_SOURCES = ripc_pingpong_client.c
 ripc_pingpong_client_LDADD = ../src/libripc.la
 ripc_pingpong_client_LDFLAGS = -static
+socket_pingpong_server_SOURCES = socket_pingpong_server.c
+socket_pingpong_server_LDADD = ../src/libripc.la
+socket_pingpong_server_LDFLAGS = -static
+socket_pingpong_client_SOURCES = socket_pingpong_client.c
+socket_pingpong_client_LDADD = ../src/libripc.la
+socket_pingpong_client_LDFLAGS = -static
 all: config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-am
 
@@ -357,6 +381,12 @@ ripc_pingpong_server$(EXEEXT): $(ripc_pingpong_server_OBJECTS) $(ripc_pingpong_s
 server$(EXEEXT): $(server_OBJECTS) $(server_DEPENDENCIES) 
 	@rm -f server$(EXEEXT)
 	$(server_LINK) $(server_OBJECTS) $(server_LDADD) $(LIBS)
+socket_pingpong_client$(EXEEXT): $(socket_pingpong_client_OBJECTS) $(socket_pingpong_client_DEPENDENCIES) 
+	@rm -f socket_pingpong_client$(EXEEXT)
+	$(socket_pingpong_client_LINK) $(socket_pingpong_client_OBJECTS) $(socket_pingpong_client_LDADD) $(LIBS)
+socket_pingpong_server$(EXEEXT): $(socket_pingpong_server_OBJECTS) $(socket_pingpong_server_DEPENDENCIES) 
+	@rm -f socket_pingpong_server$(EXEEXT)
+	$(socket_pingpong_server_LINK) $(socket_pingpong_server_OBJECTS) $(socket_pingpong_server_LDADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
@@ -368,6 +398,8 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ripc_pingpong_client.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ripc_pingpong_server.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/server.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/socket_pingpong_client.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/socket_pingpong_server.Po@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<

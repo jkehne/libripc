@@ -8,3 +8,5 @@
 /server
 /ripc_pingpong_server
 /ripc_pingpong_client
+/socket_pingpong_client
+/socket_pingpong_server

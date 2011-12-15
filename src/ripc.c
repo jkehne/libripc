@@ -1,5 +1,6 @@
 #include <time.h>
 #include <unistd.h>
+#include <string.h>
 #include "ripc.h"
 #include "common.h"
 #include "memory.h"
@@ -53,6 +54,13 @@ bool init(void) {
 	DEBUG("Device %s has %d physical ports",
 			ibv_get_device_name(*sys_devices),
 			device_attr.phys_port_cnt);
+	DEBUG("Maximum mr size: %lu", device_attr.max_mr_size);
+	DEBUG("Maximum mr count: %u", device_attr.max_mr);
+	DEBUG("Maximum number of outstanding wrs: %u", device_attr.max_qp_wr);
+	DEBUG("Maximum number of outstanding cqes: %u", device_attr.max_cqe);
+	DEBUG("Maximum number of sges per wr: %u", device_attr.max_sge);
+	DEBUG("Local CA ACK delay: %u", device_attr.local_ca_ack_delay);
+	DEBUG("Page size caps: %lx", device_attr.page_size_cap);
 	int j;
 	struct ibv_port_attr port_attr;
 	union ibv_gid gid;
@@ -61,14 +69,6 @@ bool init(void) {
 		DEBUG("Port %d: Found LID %u", i, port_attr.lid);
 		DEBUG("Port %d has %d GIDs", i, port_attr.gid_tbl_len);
 		DEBUG("Port %d's maximum message size is %u", i, port_attr.max_msg_sz);
-//		for (j = 0; j < port_attr.gid_tbl_len; ++j) {
-//			ibv_query_gid(context.device_context, i, j, &gid);
-//			DEBUG("Port %d: Found GID %d: %016lx:%016lx",
-//					i,
-//					j,
-//					gid.global.subnet_prefix,
-//					gid.global.interface_id);
-//		}
 	}
 #endif
 
@@ -344,7 +344,7 @@ ripc_send_short(
 	wr.wr.ud.remote_qpn =
 			context.remotes[dest]->qp_num ?
 					context.remotes[dest]->qp_num :
-					5505098; //TODO: Make this dynamic
+					2621514; //TODO: Make this dynamic
 //#ifdef HAVE_DEBUG
 	wr.send_flags = IBV_SEND_SIGNALED;
 //#else
@@ -370,8 +370,7 @@ ripc_send_short(
 	int ret = ibv_post_send(context.services[src]->qp, &wr, &bad_wr);
 
 	if (bad_wr) {
-		ERROR("Failed to post send! Return code: %d", ret);
-		ERROR("QP state: %d", context.services[src]->qp->state);
+		ERROR("Failed to post send: ", strerror(ret));
 		return ret;
 	} else {
 		DEBUG("Successfully posted send!");
@@ -385,13 +384,15 @@ ripc_send_short(
 	DEBUG("received completion message!");
 	if (wc.status) {
 		ERROR("Send result: %d", wc.status);
+		ERROR("QP state: %d", context.services[src]->qp->state);
 	}
 	DEBUG("Result: %d", wc.status);
 //#endif
 
 	ripc_buf_free(hdr);
 
-	return wc.status;
+	//return wc.status;
+	return ret;
 }
 
 uint8_t

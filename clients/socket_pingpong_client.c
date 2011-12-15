@@ -1,45 +1,52 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "../src/ripc.h"
 #include "config.h"
 #include "common.h"
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <netinet/in.h>
 
 #define NUM_ROUNDS 1000000
 #define PACKET_SIZE 2000
 
 int main(void) {
-	ripc_register_service_id(1);
-	int i, len, recvd = 0;
+	int sockfd;
+	struct sockaddr_in serv_addr;
+	uint32_t i;
 
 	//for benchmarking
 	struct timeval before, after;
 	uint64_t before_usec, after_usec, diff;
+	uint32_t recvd = 0;
 
 	//for sending
-	void *msg_array[1];
-	int length_array[1];
+	int length;
+	uint8_t payload[PACKET_SIZE];
+	bzero(&payload, PACKET_SIZE);
 
 	//for receiving
-	void **short_items = NULL, **long_items = NULL;
 
 	gettimeofday(&before, NULL);
 
-	msg_array[0] = ripc_buf_alloc(PACKET_SIZE);
-	bzero(msg_array[0], PACKET_SIZE);
-	length_array[0] = PACKET_SIZE;
-	printf("Starting loop\n");
-	for (i = 0; i < NUM_ROUNDS; ++i) {
-		if (ripc_send_short(1, 4, msg_array, length_array, 1))
-			continue;
-		ripc_receive(1, &short_items, &long_items);
-		//printf("Received item\n");
-		//printf("Message reads: %u\n", *(int *)short_items[0]);
-		recvd++;
+	sockfd = socket(AF_INET, SOCK_STREAM, 0);
+	if (sockfd < 0) {
+		panic("Error creating socket");
+	}
 
-		ripc_buf_free(short_items[0]);
-		free(short_items);
-		//sleep(1);
+	serv_addr.sin_family = AF_INET;
+	serv_addr.sin_port = htons(12345);
+	serv_addr.sin_addr.s_addr = inet_addr("192.168.10.10");
+
+	if (connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr))) {
+		panic("Error connecting");
+	}
+
+	for (i = 0; i < NUM_ROUNDS; ++i) {
+		length = write(sockfd, &payload, PACKET_SIZE);
+		length = read(sockfd, &payload, PACKET_SIZE);
+
+		recvd++;
 	}
 
 	gettimeofday(&after, NULL);
