@@ -2,6 +2,7 @@
 #include "ripc.h"
 #include "multicast_resources.h"
 #include "resources.h"
+#include "memory.h"
 #include <string.h>
 #include <pthread.h>
 

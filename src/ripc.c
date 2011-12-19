@@ -76,8 +76,6 @@ bool init(void) {
 		context.lid = port_attr.lid;
 	}
 
-	//TODO: do we need to call ibv_fork_init() here?
-
 	pthread_mutex_init(&services_mutex, NULL);
 	pthread_mutex_init(&remotes_mutex, NULL);
 	pthread_mutex_init(&used_list_mutex, NULL);
