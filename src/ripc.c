@@ -1,11 +1,16 @@
 #include <time.h>
 #include <unistd.h>
 #include <string.h>
+#include <pthread.h>
 #include "ripc.h"
 #include "common.h"
 #include "memory.h"
+#include "resolver.h"
+#include "resources.h"
 
 struct library_context context;
+
+pthread_mutex_t services_mutex, remotes_mutex;
 
 bool init(void) {
 	if (context.device_context != NULL)
@@ -48,7 +53,6 @@ bool init(void) {
 		DEBUG("Allocated protection domain: %u", context.pd->handle);
 	}
 
-#ifdef HAVE_DEBUG
 	struct ibv_device_attr device_attr;
 	ibv_query_device(context.device_context,&device_attr);
 	DEBUG("Device %s has %d physical ports",
@@ -69,8 +73,17 @@ bool init(void) {
 		DEBUG("Port %d: Found LID %u", i, port_attr.lid);
 		DEBUG("Port %d has %d GIDs", i, port_attr.gid_tbl_len);
 		DEBUG("Port %d's maximum message size is %u", i, port_attr.max_msg_sz);
+		context.lid = port_attr.lid;
 	}
-#endif
+
+	//TODO: do we need to call ibv_fork_init() here?
+
+	pthread_mutex_init(&services_mutex, NULL);
+	pthread_mutex_init(&remotes_mutex, NULL);
+	pthread_mutex_init(&used_list_mutex, NULL);
+	pthread_mutex_init(&free_list_mutex, NULL);
+
+	dispatch_responder();
 
 	return true;
 }
@@ -96,8 +109,12 @@ uint8_t ripc_register_service_id(int service_id) {
 	struct service_id *service_context;
 	uint32_t i;
 
-	if (context.services[service_id] != NULL)
+	pthread_mutex_lock(&services_mutex);
+
+	if (context.services[service_id] != NULL) {
+		pthread_mutex_unlock(&services_mutex);
 		return false; //already allocated
+	}
 
 	context.services[service_id] =
 		(struct service_id *)malloc(sizeof(struct service_id));
@@ -106,133 +123,19 @@ uint8_t ripc_register_service_id(int service_id) {
 
 	service_context->number = service_id;
 
-	service_context->cchannel = ibv_create_comp_channel(context.device_context);
-	if (service_context->cchannel == NULL) {
-		ERROR("Failed to allocate completion event channel!");
-		free(service_context);
-		return false;
-	} else {
-		DEBUG("Allocated completion event channel");
-	}
-
-	service_context->recv_cq = ibv_create_cq(
-			context.device_context,
-			100,
-			NULL,
-			service_context->cchannel,
-			0);
-	if (service_context->recv_cq == NULL) {
-		ERROR("Failed to allocate receive completion queue!");
-		ibv_destroy_comp_channel(service_context->cchannel);
-		free(service_context);
-		return false;
-	} else {
-		DEBUG("Allocated receive completion queue: %u", service_context->recv_cq->handle);
-	}
-
-	service_context->send_cq = ibv_create_cq(
-			context.device_context,
-			100,
-			NULL,
-			NULL,
-			0);
-	if (service_context->send_cq == NULL) {
-		ERROR("Failed to allocate send completion queue!");
-		ibv_destroy_comp_channel(service_context->cchannel);
-		ibv_destroy_cq(service_context->recv_cq);
-		free(service_context);
-		return false;
-	} else {
-		DEBUG("Allocated send completion queue: %u", service_context->send_cq->handle);
-	}
-
-	ibv_req_notify_cq(service_context->recv_cq, 0);
-
-	struct ibv_qp_init_attr init_attr = {
-		.send_cq = service_context->send_cq,
-		.recv_cq = service_context->recv_cq,
-		.cap     = {
-			.max_send_wr  = NUM_RECV_BUFFERS * 200,
-			.max_recv_wr  = NUM_RECV_BUFFERS * 200,
-			.max_send_sge = 10,
-			.max_recv_sge = 10
-		},
-		.qp_type = IBV_QPT_UD,
-		.sq_sig_all = 0
-	};
-	service_context->qp = ibv_create_qp(
-			context.pd,
-			&init_attr);
-	if (service_context->qp == NULL) {
-		ERROR("Failed to allocate queue pair!");
-		ibv_destroy_cq(service_context->recv_cq);
-		ibv_destroy_comp_channel(service_context->cchannel);
-		free(service_context);
-		return false;
-	} else {
-		DEBUG("Allocated queue pair: %u", service_context->qp->qp_num);
-	}
-
-	struct ibv_qp_attr attr;
-	attr.qp_state = IBV_QPS_INIT;
-	attr.pkey_index = 0;
-	attr.port_num = 1;
-	attr.qkey = service_id;
-
-	if (ibv_modify_qp(service_context->qp,
-			&attr,
-			IBV_QP_STATE		|
-			IBV_QP_PKEY_INDEX	|
-			IBV_QP_PORT			|
-			IBV_QP_QKEY			)) {
-		ERROR("Failed to modify QP state to INIT");
-		ibv_destroy_qp(service_context->qp);
-		ibv_destroy_cq(service_context->recv_cq);
-		ibv_destroy_comp_channel(service_context->cchannel);
-		free(service_context);
-		return false;
-	} else {
-		DEBUG("Modified state of QP %u to INIT",service_context->qp->qp_num);
-	}
-
-	attr.qp_state = IBV_QPS_RTR;
-	if (ibv_modify_qp(service_context->qp, &attr, IBV_QP_STATE)) {
-		ERROR("Failed to modify QP state to RTR");
-		ibv_destroy_qp(service_context->qp);
-		ibv_destroy_cq(service_context->recv_cq);
-		ibv_destroy_comp_channel(service_context->cchannel);
-		free(service_context);
-		return false;
-	} else {
-		DEBUG("Modified state of QP %u to RTR",service_context->qp->qp_num);
-	}
-
-	attr.qp_state = IBV_QPS_RTS;
-	attr.sq_psn = 0;
-	if (ibv_modify_qp(service_context->qp, &attr, IBV_QP_STATE | IBV_QP_SQ_PSN)) {
-		ERROR("Failed to modify QP state to RTS");
-		ibv_destroy_qp(service_context->qp);
-		ibv_destroy_cq(service_context->recv_cq);
-		ibv_destroy_comp_channel(service_context->cchannel);
-		free(service_context);
-		return false;
-	} else {
-		DEBUG("Modified state of QP %u to RTS",service_context->qp->qp_num);
-	}
-
-#ifdef HAVE_DEBUG
-	ibv_query_qp(service_context->qp,&attr,~0,&init_attr);
-	DEBUG("qkey of QP %u is %d", service_context->qp->qp_num, attr.qkey);
-#endif
-
-	for (i = 0; i < NUM_RECV_BUFFERS; ++i) {
-		post_new_recv_buf(service_context);
-	}
+	alloc_queue_state(
+			&service_context->cchannel,
+			&service_context->send_cq,
+			&service_context->recv_cq,
+			&service_context->qp,
+			service_id
+			);
 
 #ifndef HAVE_DEBUG
 	printf("qp_num is %u\n", service_context->qp->qp_num);
 #endif
 
+	pthread_mutex_unlock(&services_mutex);
 	return true;
 }
 
@@ -314,7 +217,7 @@ ripc_send_short(
 		sge[i + 1].length = length[i];
 		sge[i + 1].lkey = mr->lkey;
 	}
-
+#if 0
 	struct ibv_ah *ah; //where to send it
 
 	if (context.remotes[dest] && context.remotes[dest]->ah)
@@ -332,19 +235,22 @@ ripc_send_short(
 		context.remotes[dest]->ah = ah;
 		context.remotes[dest]->qp_num = 0; //probably invalid anyway if the ah has changed
 	}
-
+#else
+	if (!context.remotes[dest])
+		resolve(src, dest);
+	assert(context.remotes[dest]);
+#endif
 	struct ibv_send_wr wr;
 	wr.next = NULL;
 	wr.opcode = IBV_WR_SEND;
 	wr.num_sge = num_items + 1;
 	wr.sg_list = &sge;
 	wr.wr_id = 0xdeadbeef; //TODO: Make this a counter?
-	wr.wr.ud.ah = ah;
 	wr.wr.ud.remote_qkey = (uint32_t)dest;
-	wr.wr.ud.remote_qpn =
-			context.remotes[dest]->qp_num ?
-					context.remotes[dest]->qp_num :
-					2621514; //TODO: Make this dynamic
+	pthread_mutex_lock(&remotes_mutex);
+	wr.wr.ud.ah = context.remotes[dest]->ah;
+	wr.wr.ud.remote_qpn = context.remotes[dest]->qp_num;
+	pthread_mutex_unlock(&remotes_mutex);
 //#ifdef HAVE_DEBUG
 	wr.send_flags = IBV_SEND_SIGNALED;
 //#else
@@ -367,7 +273,12 @@ ripc_send_short(
 
 	struct ibv_send_wr *bad_wr = NULL;
 
-	int ret = ibv_post_send(context.services[src]->qp, &wr, &bad_wr);
+	pthread_mutex_lock(&services_mutex);
+	struct ibv_qp *dest_qp = context.services[src]->qp;
+	struct ibv_cq *dest_cq = context.services[src]->send_cq;
+	pthread_mutex_unlock(&services_mutex);
+
+	int ret = ibv_post_send(dest_qp, &wr, &bad_wr);
 
 	if (bad_wr) {
 		ERROR("Failed to post send: ", strerror(ret));
@@ -379,12 +290,12 @@ ripc_send_short(
 
 //#ifdef HAVE_DEBUG
 	struct ibv_wc wc;
-	while (!(ibv_poll_cq(context.services[src]->send_cq, 1, &wc))); //polling is probably faster here
+	while (!(ibv_poll_cq(dest_cq, 1, &wc))); //polling is probably faster here
 	//ibv_ack_cq_events(context.services[src]->recv_cq, 1);
 	DEBUG("received completion message!");
 	if (wc.status) {
 		ERROR("Send result: %d", wc.status);
-		ERROR("QP state: %d", context.services[src]->qp->state);
+		ERROR("QP state: %d", dest_qp->state);
 	}
 	DEBUG("Result: %d", wc.status);
 //#endif
@@ -413,25 +324,35 @@ ripc_receive(
 
 	struct ibv_wc wc;
 	void *ctx;
-	struct ibv_cq *cq;
+	struct ibv_cq *cq, *recv_cq;
+	struct ibv_comp_channel *cchannel;
+	struct ibv_qp *qp;
 	uint32_t i;
+
+	pthread_mutex_lock(&services_mutex);
+
+	cchannel = context.services[service_id]->cchannel;
+	recv_cq = context.services[service_id]->recv_cq;
+	qp = context.services[service_id]->qp;
+
+	pthread_mutex_unlock(&services_mutex);
 
 	restart:
 	do {
-		ibv_get_cq_event(context.services[service_id]->cchannel,
+		ibv_get_cq_event(cchannel,
 		&cq,
 		&ctx);
 
-		assert(cq == context.services[service_id]->recv_cq);
+		assert(cq == recv_cq);
 
-		ibv_ack_cq_events(context.services[service_id]->recv_cq, 1);
-		ibv_req_notify_cq(context.services[service_id]->recv_cq, 0);
+		ibv_ack_cq_events(recv_cq, 1);
+		ibv_req_notify_cq(recv_cq, 0);
 
-	} while (!(ibv_poll_cq(context.services[service_id]->recv_cq, 1, &wc)));
+	} while (!(ibv_poll_cq(recv_cq, 1, &wc)));
 
 	DEBUG("received!");
 
-	post_new_recv_buf(context.services[service_id]);
+	post_new_recv_buf(qp);
 
 	struct ibv_recv_wr *wr = (struct ibv_recv_wr *)(wc.wr_id);
 	struct msg_header *hdr = (struct msg_header *)(wr->sg_list->addr + 40);
@@ -453,6 +374,8 @@ ripc_receive(
 	assert(hdr->to == service_id);
 
 	//cache remote address handle if we don't have it already
+	pthread_mutex_lock(&remotes_mutex);
+
 	if (( ! context.remotes[hdr->from]) ||
 			( ! context.remotes[hdr->from]->ah)) {
 		DEBUG("Caching remote address handle for remote %u", hdr->from);
@@ -468,6 +391,8 @@ ripc_receive(
 		//not conditional as we assume when the ah needs updating, so does the qp number
 		context.remotes[hdr->from]->qp_num = wc.src_qp;
 	}
+
+	pthread_mutex_unlock(&remotes_mutex);
 
 	*short_items = malloc(sizeof(void *) * hdr->short_words);
 	for (i = 0; i < hdr->short_words; ++i) {

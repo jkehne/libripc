@@ -18,11 +18,31 @@ AC_CHECK_LIB([ibverbs],[ibv_get_device_list],[],[
 	exit -1
 ])
 
+AC_CHECK_LIB([ibumad],[umad_init],[],[
+	echo "Error: Libibumad not found!"
+	exit -1
+])
+
+AC_CHECK_LIB([pthread],[pthread_create],[],[
+	echo "Error: Libpthread not found!"
+	exit -1
+])
+
 AC_HEADER_STDC
 AC_HEADER_STDBOOL
 AC_HEADER_ASSERT
 AC_CHECK_HEADER([infiniband/verbs.h],[],[
 	echo "Error: Libibverbs development headers not found!"
+	exit -1
+])
+
+AC_CHECK_HEADER([infiniband/umad.h],[],[
+	echo "Error: Libumad development headers not found!"
+	exit -1
+])
+
+AC_CHECK_HEADER([pthread.h],[],[
+	echo "Error: Libpthread development headers not found!"
 	exit -1
 ])
 

@@ -8,3 +8,6 @@
 /libripc.la
 /memory.lo
 /ripc.lo
+/multicast_resources.lo
+/resources.lo
+/resolver.lo

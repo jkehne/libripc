@@ -18,9 +18,14 @@ struct mem_buf_list *used_buffers = NULL;
 struct mem_buf_list *available_buffers = NULL;
 struct mem_buf_list *available_buffers_tail = NULL;
 
+pthread_mutex_t used_list_mutex, free_list_mutex;
+
 void used_buf_list_add(struct ibv_mr *item) {
 	struct mem_buf_list *container = malloc(sizeof(struct mem_buf_list));
 	container->mr = item;
+
+	pthread_mutex_lock(&used_list_mutex);
+
 	if (used_buffers == NULL) {
 		container->next = NULL;
 		used_buffers = container;
@@ -28,6 +33,8 @@ void used_buf_list_add(struct ibv_mr *item) {
 		container->next = used_buffers;
 		used_buffers = container;
 	}
+
+	pthread_mutex_unlock(&used_list_mutex);
 	return;
 }
 
@@ -35,6 +42,7 @@ struct ibv_mr *used_buf_list_get(void *addr) {
 	struct mem_buf_list *ptr = used_buffers;
 	struct mem_buf_list *prev = NULL;
 
+	pthread_mutex_unlock(&used_list_mutex);
 	while(ptr) {
 		if (((uint64_t)addr >= (uint64_t)ptr->mr->addr)
 				&& ((uint64_t)addr <= (uint64_t)ptr->mr->addr + ptr->mr->length)) {
@@ -43,6 +51,7 @@ struct ibv_mr *used_buf_list_get(void *addr) {
 			else //first element in list
 				used_buffers = ptr->next;
 				//NOTE: If ptr is the only element, then ptr->next is NULL
+			pthread_mutex_unlock(&used_list_mutex);
 			struct ibv_mr *ret = ptr->mr;
 			free(ptr);
 			return ret;
@@ -50,12 +59,16 @@ struct ibv_mr *used_buf_list_get(void *addr) {
 		prev = ptr;
 		ptr = ptr->next;
 	}
+	pthread_mutex_unlock(&used_list_mutex);
 	return NULL; //not found
 }
 
 void free_buf_list_add(struct ibv_mr *item) {
 	struct mem_buf_list *container = malloc(sizeof(struct mem_buf_list));
 	container->mr = item;
+
+	pthread_mutex_lock(&free_list_mutex);
+
 	if (available_buffers_tail == NULL) {
 		container->next = NULL;
 		available_buffers = container;
@@ -64,6 +77,8 @@ void free_buf_list_add(struct ibv_mr *item) {
 		available_buffers_tail->next = container;
 		available_buffers_tail = container;
 	}
+
+	pthread_mutex_unlock(&free_list_mutex);
 	return;
 }
 
@@ -71,6 +86,7 @@ struct ibv_mr *free_buf_list_get(size_t size) {
 	struct mem_buf_list *ptr = available_buffers;
 	struct mem_buf_list *prev = NULL;
 
+	pthread_mutex_lock(&free_list_mutex);
 	while(ptr) {
 		if (ptr->mr->length >= size) {
 			if (prev)
@@ -83,6 +99,7 @@ struct ibv_mr *free_buf_list_get(size_t size) {
 				if (prev)
 					prev->next = NULL;
 			}
+			pthread_mutex_unlock(&free_list_mutex);
 			struct ibv_mr *ret = ptr->mr;
 			free(ptr);
 			return ret;
@@ -90,6 +107,7 @@ struct ibv_mr *free_buf_list_get(size_t size) {
 		prev = ptr;
 		ptr = ptr->next;
 	}
+	pthread_mutex_unlock(&free_list_mutex);
 	return NULL; //not found
 }
 
@@ -104,7 +122,7 @@ struct ibv_mr *ripc_alloc_recv_buf(size_t size) {
 	}
 
 	//none found in cache, so create a new one
-
+	DEBUG("No hit in free list, allocating new mr");
 	void *buf = valloc(size);
 	//valloc is like malloc, but aligned to page boundary
 
@@ -117,6 +135,7 @@ struct ibv_mr *ripc_alloc_recv_buf(size_t size) {
 				IBV_ACCESS_LOCAL_WRITE |
 				IBV_ACCESS_REMOTE_READ |
 				IBV_ACCESS_REMOTE_WRITE);
+		DEBUG("mr buffer address is %p", mr->addr);
 		used_buf_list_add(mr);
 		return mr;
 	}
@@ -147,7 +166,7 @@ struct ibv_mr *ripc_buf_register(void *buf, uint32_t size) {
 	return mr;
 }
 
-void post_new_recv_buf(struct service_id *service_context) {
+void post_new_recv_buf(struct ibv_qp *qp) {
 	struct ibv_mr *mr;
 	struct ibv_sge *list;
 	struct ibv_recv_wr *wr, *bad_wr;
@@ -166,11 +185,11 @@ void post_new_recv_buf(struct service_id *service_context) {
 	wr->num_sge = 1;
 	wr->next = NULL;
 
-	if (ibv_post_recv(service_context->qp, wr, &bad_wr)) {
-		ERROR("Failed to post receive item to QP %u!", service_context->qp->qp_num);
+	if (ibv_post_recv(qp, wr, &bad_wr)) {
+		ERROR("Failed to post receive item to QP %u!", qp->qp_num);
 	} else {
 		DEBUG("Posted receive buffer at address %p to QP %u",
 				mr->addr,
-				service_context->qp->qp_num);
+				qp->qp_num);
 	}
 }

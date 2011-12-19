@@ -5,11 +5,12 @@
 #include "config.h"
 #include "common.h"
 
-#define NUM_ROUNDS 1000000
+#define NUM_ROUNDS 10
 #define PACKET_SIZE 2000
 
 int main(void) {
 	ripc_register_service_id(1);
+	sleep(1);
 	int i, len, recvd = 0;
 
 	//for benchmarking

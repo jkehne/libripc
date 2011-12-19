@@ -12030,6 +12030,108 @@ else
 fi
 
 
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for umad_init in -libumad" >&5
+$as_echo_n "checking for umad_init in -libumad... " >&6; }
+if ${ac_cv_lib_ibumad_umad_init+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-libumad  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char umad_init ();
+int
+main ()
+{
+return umad_init ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_ibumad_umad_init=yes
+else
+  ac_cv_lib_ibumad_umad_init=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_ibumad_umad_init" >&5
+$as_echo "$ac_cv_lib_ibumad_umad_init" >&6; }
+if test "x$ac_cv_lib_ibumad_umad_init" = xyes; then :
+  cat >>confdefs.h <<_ACEOF
+@%:@define HAVE_LIBIBUMAD 1
+_ACEOF
+
+  LIBS="-libumad $LIBS"
+
+else
+  
+	echo "Error: Libibumad not found!"
+	exit -1
+
+fi
+
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for pthread_create in -lpthread" >&5
+$as_echo_n "checking for pthread_create in -lpthread... " >&6; }
+if ${ac_cv_lib_pthread_pthread_create+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lpthread  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char pthread_create ();
+int
+main ()
+{
+return pthread_create ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_pthread_pthread_create=yes
+else
+  ac_cv_lib_pthread_pthread_create=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_pthread_pthread_create" >&5
+$as_echo "$ac_cv_lib_pthread_pthread_create" >&6; }
+if test "x$ac_cv_lib_pthread_pthread_create" = xyes; then :
+  cat >>confdefs.h <<_ACEOF
+@%:@define HAVE_LIBPTHREAD 1
+_ACEOF
+
+  LIBS="-lpthread $LIBS"
+
+else
+  
+	echo "Error: Libpthread not found!"
+	exit -1
+
+fi
+
+
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for ANSI C header files" >&5
 $as_echo_n "checking for ANSI C header files... " >&6; }
 if ${ac_cv_header_stdc+:} false; then :
@@ -12262,6 +12364,30 @@ if test "x$ac_cv_header_infiniband_verbs_h" = xyes; then :
 else
   
 	echo "Error: Libibverbs development headers not found!"
+	exit -1
+
+fi
+
+
+
+ac_fn_c_check_header_mongrel "$LINENO" "infiniband/umad.h" "ac_cv_header_infiniband_umad_h" "$ac_includes_default"
+if test "x$ac_cv_header_infiniband_umad_h" = xyes; then :
+  
+else
+  
+	echo "Error: Libumad development headers not found!"
+	exit -1
+
+fi
+
+
+
+ac_fn_c_check_header_mongrel "$LINENO" "pthread.h" "ac_cv_header_pthread_h" "$ac_includes_default"
+if test "x$ac_cv_header_pthread_h" = xyes; then :
+  
+else
+  
+	echo "Error: Libpthread development headers not found!"
 	exit -1
 
 fi

@@ -49,6 +49,7 @@ struct remote_context {
 struct library_context {
 	struct ibv_context *device_context;
 	struct ibv_pd *pd;
+	uint16_t lid;
 	struct service_id *services[UINT16_MAX];
 	struct remote_context *remotes[UINT16_MAX];
 };
@@ -57,7 +58,7 @@ enum msg_type {
 	RIPC_MSG_SEND = 0xdeadbeef,
 	RIPC_MSG_INTERRUPT,
 	RIPC_MSG_RESOLVE_REQ,
-	RIPC_MST_RESOLVE_REPLY
+	RIPC_MSG_RESOLVE_REPLY
 };
 
 struct msg_header {
@@ -75,5 +76,6 @@ struct short_header {
 };
 
 extern struct library_context context;
+extern pthread_mutex_t services_mutex, remotes_mutex;
 
 #endif /* COMMON_H_ */
