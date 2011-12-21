@@ -80,6 +80,15 @@ bool init(void) {
 	pthread_mutex_init(&remotes_mutex, NULL);
 	pthread_mutex_init(&used_list_mutex, NULL);
 	pthread_mutex_init(&free_list_mutex, NULL);
+	pthread_mutex_init(&rdma_connect_mutex, NULL);
+
+	alloc_queue_state( //queues for sending connection requests
+			NULL,
+			&rdma_send_cq,
+			&rdma_recv_cq,
+			&rdma_qp,
+			0xffff
+			);
 
 	dispatch_responder();
 
@@ -310,6 +319,11 @@ ripc_send_long(
 		uint16_t dest,
 		void *buf,
 		uint32_t length) {
+
+	if (( ! context.remotes[dest]) ||
+			(context.remotes[dest]->state != RIPC_RDMA_ESTABLISHED)) {
+		create_rdma_connection(src, dest);
+	}
 
 	return 0;
 }

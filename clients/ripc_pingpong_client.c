@@ -32,6 +32,12 @@ int main(void) {
 	bzero(msg_array[0], PACKET_SIZE);
 	length_array[0] = PACKET_SIZE;
 	printf("Starting loop\n");
+
+	ripc_send_long(my_service_id, 4, msg_array[0], PACKET_SIZE);
+
+	sleep(1);
+
+	#if 0
 	for (i = 0; i < NUM_ROUNDS; ++i) {
 		if (ripc_send_short(my_service_id, 4, msg_array, length_array, 1))
 			continue;
@@ -44,6 +50,7 @@ int main(void) {
 		free(short_items);
 		//sleep(1);
 	}
+#endif
 
 	gettimeofday(&after, NULL);
 	before_usec = before.tv_sec * 1000000 + before.tv_usec;

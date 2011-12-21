@@ -39,7 +39,7 @@ enum msg_type {
        RIPC_MSG_RESOLVE_REQ,
        RIPC_MSG_RESOLVE_REPLY,
        RIPC_RDMA_CONN_REQ,
-       RIPC_RDMA_CONN_REP
+       RIPC_RDMA_CONN_REPLY
 };
 
 enum conn_state {
