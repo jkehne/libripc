@@ -33,7 +33,7 @@ int main(void) {
 	length_array[0] = PACKET_SIZE;
 	printf("Starting loop\n");
 
-	ripc_send_long(my_service_id, 4, msg_array[0], PACKET_SIZE);
+	ripc_send_long(my_service_id, 4, msg_array, length_array, 1);
 
 	sleep(1);
 

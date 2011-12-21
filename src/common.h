@@ -92,6 +92,7 @@ struct short_header {
 struct long_desc {
 	uint32_t qp_num;
 	uint64_t addr;
+	uint32_t length;
 	uint32_t rkey;
 };
 

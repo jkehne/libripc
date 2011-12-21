@@ -28,8 +28,9 @@ uint8_t ripc_send_short(
 uint8_t ripc_send_long(
 		uint16_t src,
 		uint16_t dest,
-		void *buf,
-		uint32_t length
+		void **buf,
+		uint32_t *length,
+		uint32_t num_items
 		);
 
 uint8_t ripc_receive(

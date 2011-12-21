@@ -154,6 +154,8 @@ ripc_send_short(
 		uint32_t *length,
 		uint32_t num_items) {
 
+	DEBUG("Starting short send: %u -> %u (%u items)", src, dest, num_items);
+
 	uint32_t i, total_length = 0;
 
 	for (i = 0; i < num_items; ++i)
@@ -251,7 +253,7 @@ ripc_send_short(
 	wr.next = NULL;
 	wr.opcode = IBV_WR_SEND;
 	wr.num_sge = num_items + 1;
-	wr.sg_list = &sge;
+	wr.sg_list = sge;
 	wr.wr_id = 0xdeadbeef; //TODO: Make this a counter?
 	wr.wr.ud.remote_qkey = (uint32_t)dest;
 	pthread_mutex_lock(&remotes_mutex);
@@ -317,13 +319,111 @@ uint8_t
 ripc_send_long(
 		uint16_t src,
 		uint16_t dest,
-		void *buf,
-		uint32_t length) {
+		void **buf,
+		uint32_t *length,
+		uint32_t num_items) {
+
+	DEBUG("Starting long send: %u -> %u (%u items)", src, dest, num_items);
 
 	if (( ! context.remotes[dest]) ||
 			(context.remotes[dest]->state != RIPC_RDMA_ESTABLISHED)) {
 		create_rdma_connection(src, dest);
 	}
+
+	uint32_t i;
+
+	//build packet header
+	struct ibv_mr *header_mr =
+			ripc_alloc_recv_buf(
+					sizeof(struct msg_header)
+					+ sizeof(struct long_desc) * num_items
+					);
+	struct msg_header *hdr = (struct msg_header *)header_mr->addr;
+	struct long_desc *msg =
+			(struct long_desc *)((uint64_t)hdr + sizeof(struct msg_header));
+
+	hdr->type = RIPC_MSG_SEND;
+	hdr->from = src;
+	hdr->to = dest;
+	hdr->short_words = 0;
+	hdr->long_words = num_items;
+	hdr->return_bufs = 0;
+
+	struct ibv_sge sge; //+1 for header
+	sge.addr = (uint64_t)header_mr->addr;
+	sge.length = sizeof(struct msg_header)
+							+ sizeof(struct long_desc) * num_items;
+	sge.lkey = header_mr->lkey;
+
+	for (i = 0; i < num_items; ++i) {
+
+		//make sure send buffers are registered with the hardware
+		struct ibv_mr *mr = used_buf_list_get(buf[i]);
+		void *tmp_buf;
+
+		if (!mr) { //not registered yet
+			DEBUG("mr not found in cache, creating new one");
+			mr = ripc_alloc_recv_buf(length[i]);
+			tmp_buf = mr->addr;
+			memcpy(tmp_buf,buf[i],length[i]);
+		} else {
+			DEBUG("Found mr in cache!");
+			used_buf_list_add(mr);
+			tmp_buf = buf[i];
+		}
+
+		assert(mr);
+		assert(mr->length >= length[i]); //the hardware won't allow it anyway
+
+		msg[i].addr = (uint64_t)mr->addr;
+		msg[i].length = mr->length;
+		pthread_mutex_lock(&remotes_mutex);
+		msg[i].qp_num = context.remotes[dest]->rdma_qp->qp_num;
+		pthread_mutex_unlock(&remotes_mutex);
+		msg[i].rkey = mr->rkey;
+	}
+
+	//message item done, now send it
+	struct ibv_send_wr wr;
+	wr.next = NULL;
+	wr.num_sge = 1;
+	wr.opcode = IBV_WR_SEND;
+	wr.send_flags = IBV_SEND_SIGNALED;
+	wr.sg_list = &sge;
+	wr.wr_id = 0xdeadbeef;
+	pthread_mutex_lock(&remotes_mutex);
+	wr.wr.ud.ah = context.remotes[dest]->ah;
+	wr.wr.ud.remote_qpn = context.remotes[dest]->qp_num;
+	pthread_mutex_unlock(&remotes_mutex);
+	wr.wr.ud.remote_qkey = dest;
+
+	struct ibv_send_wr *bad_wr = NULL;
+
+	pthread_mutex_lock(&services_mutex);
+	struct ibv_qp *dest_qp = context.services[src]->qp;
+	struct ibv_cq *dest_cq = context.services[src]->send_cq;
+	pthread_mutex_unlock(&services_mutex);
+
+	int ret = ibv_post_send(dest_qp, &wr, &bad_wr);
+
+	if (bad_wr) {
+		ERROR("Failed to post send: ", strerror(ret));
+		return ret;
+	} else {
+		DEBUG("Successfully posted send!");
+	}
+
+
+	struct ibv_wc wc;
+	while (!(ibv_poll_cq(dest_cq, 1, &wc))); //polling is probably faster here
+	DEBUG("received completion message!");
+	if (wc.status) {
+		ERROR("Send result: %d", wc.status);
+		ERROR("QP state: %d", dest_qp->state);
+	}
+	DEBUG("Result: %d", wc.status);
+
+	ripc_buf_free(hdr);
 
 	return 0;
 }
@@ -380,11 +480,6 @@ ripc_receive(
 
 	DEBUG("Message type is %#x", hdr->type);
 
-	struct short_header *msg =
-			(struct short_header *)(wr->sg_list->addr
-					+ 40 //skip GRH
-					+ sizeof(struct msg_header));
-
 	//cache remote address handle if we don't have it already
 	pthread_mutex_lock(&remotes_mutex);
 
@@ -406,9 +501,28 @@ ripc_receive(
 
 	pthread_mutex_unlock(&remotes_mutex);
 
+	struct short_header *msg =
+			(struct short_header *)(wr->sg_list->addr
+					+ 40 //skip GRH
+					+ sizeof(struct msg_header));
+
+	struct long_desc *long_msg =
+			(struct long_desc *)(wr->sg_list->addr
+					+ 40 //skip GRH
+					+ sizeof(struct msg_header)
+					+ sizeof(struct short_header) * hdr->short_words);
+
 	*short_items = malloc(sizeof(void *) * hdr->short_words);
 	for (i = 0; i < hdr->short_words; ++i) {
 		(*short_items)[i] = (void *)(wr->sg_list->addr + msg[i].offset);
+	}
+
+	for (i = 0; i < hdr->long_words; ++i) {
+		DEBUG("Received long item: addr %#lx, length %u, qp %u, rkey %#lx",
+				long_msg[i].addr,
+				long_msg[i].length,
+				long_msg[i].qp_num,
+				long_msg[i].rkey);
 	}
 
 	*from_service_id = hdr->from;
