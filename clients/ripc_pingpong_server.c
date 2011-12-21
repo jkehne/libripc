@@ -12,13 +12,15 @@ int main(void) {
 	void **short_items = NULL, **long_items = NULL;
 	int length = PACKET_SIZE;
 	int num_items, count = 0;
+	uint16_t from;
+
 	printf("Starting loop\n");
 	while(true) {
 		DEBUG("Waiting for message");
-		num_items = ripc_receive(4, &short_items,&long_items);
+		num_items = ripc_receive(4, &from, &short_items,&long_items);
 		DEBUG("Received message: %d\n", *(int *)short_items[0]);
 		//printf("pingpong %d\n", ++count);
-		ripc_send_short(4, 1, short_items, &length, 1);
+		ripc_send_short(4, from, short_items, &length, 1);
 		ripc_buf_free(short_items[0]); //returns receive buffer to pool
 		free(short_items); //frees the array itself
 	}

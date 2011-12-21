@@ -317,6 +317,7 @@ ripc_send_long(
 uint8_t
 ripc_receive(
 		uint16_t service_id,
+		uint16_t *from_service_id,
 		void ***short_items,
 		void ***long_items) {
 
@@ -355,7 +356,8 @@ ripc_receive(
 	struct ibv_recv_wr *wr = (struct ibv_recv_wr *)(wc.wr_id);
 	struct msg_header *hdr = (struct msg_header *)(wr->sg_list->addr + 40);
 
-	if (hdr->type != RIPC_MSG_SEND) {
+	if ((hdr->type != RIPC_MSG_SEND) || (hdr->to != service_id)) {
+		ripc_buf_free(hdr);
 		free(wr->sg_list);
 		free(wr);
 		ERROR("Spurious message, restarting");
@@ -368,8 +370,6 @@ ripc_receive(
 			(struct short_header *)(wr->sg_list->addr
 					+ 40 //skip GRH
 					+ sizeof(struct msg_header));
-
-	assert(hdr->to == service_id);
 
 	//cache remote address handle if we don't have it already
 	pthread_mutex_lock(&remotes_mutex);
@@ -396,6 +396,8 @@ ripc_receive(
 	for (i = 0; i < hdr->short_words; ++i) {
 		(*short_items)[i] = (void *)(wr->sg_list->addr + msg[i].offset);
 	}
+
+	*from_service_id = hdr->from;
 
 	free(wr->sg_list);
 	free(wr);

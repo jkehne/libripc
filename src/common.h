@@ -33,6 +33,22 @@ typedef bool _Bool;
 # define __bool_true_false_are_defined 1
 #endif
 
+enum msg_type {
+       RIPC_MSG_SEND = 0xdeadbeef,
+       RIPC_MSG_INTERRUPT,
+       RIPC_MSG_RESOLVE_REQ,
+       RIPC_MSG_RESOLVE_REPLY,
+       RIPC_RDMA_CONN_REQ,
+       RIPC_RDMA_CONN_REP
+};
+
+enum conn_state {
+       RIPC_RDMA_DISCONNECTED,
+       RIPC_RDMA_CONNECTING,
+       RIPC_RDMA_ESTABLISHED
+};
+
+
 struct service_id {
 	uint16_t number;
 	struct ibv_cq *send_cq;
@@ -43,7 +59,12 @@ struct service_id {
 
 struct remote_context {
 	uint32_t qp_num;
+	uint32_t resolver_qp;
+	enum conn_state state;
 	struct ibv_ah *ah;
+	struct ibv_qp *rdma_qp;
+	struct ibv_cq *rdma_send_cq;
+	struct ibv_cq *rdma_recv_cq;
 };
 
 struct library_context {
@@ -52,13 +73,6 @@ struct library_context {
 	uint16_t lid;
 	struct service_id *services[UINT16_MAX];
 	struct remote_context *remotes[UINT16_MAX];
-};
-
-enum msg_type {
-	RIPC_MSG_SEND = 0xdeadbeef,
-	RIPC_MSG_INTERRUPT,
-	RIPC_MSG_RESOLVE_REQ,
-	RIPC_MSG_RESOLVE_REPLY
 };
 
 struct msg_header {
@@ -73,6 +87,12 @@ struct msg_header {
 struct short_header {
 	uint32_t offset;
 	uint32_t size;
+};
+
+struct long_desc {
+	uint32_t qp_num;
+	uint64_t addr;
+	uint32_t rkey;
 };
 
 extern struct library_context context;

@@ -260,6 +260,8 @@ void *start_responder(void *arg) {
 		ibv_destroy_cq(unicast_send_cq);
 	if (mcast_ah)
 		ibv_destroy_ah(mcast_ah);
+
+	return NULL;
 }
 
 void dispatch_responder(void) {

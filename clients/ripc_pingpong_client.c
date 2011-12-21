@@ -5,11 +5,12 @@
 #include "config.h"
 #include "common.h"
 
-#define NUM_ROUNDS 10000
+#define NUM_ROUNDS 100
 #define PACKET_SIZE 2000
 
 int main(void) {
-	ripc_register_service_id(1);
+	//ripc_register_service_id(1);
+	uint16_t my_service_id = ripc_register_random_service_id();
 	sleep(1);
 	int i, len, recvd = 0;
 
@@ -23,6 +24,7 @@ int main(void) {
 
 	//for receiving
 	void **short_items = NULL, **long_items = NULL;
+	uint16_t from;
 
 	gettimeofday(&before, NULL);
 
@@ -31,9 +33,9 @@ int main(void) {
 	length_array[0] = PACKET_SIZE;
 	printf("Starting loop\n");
 	for (i = 0; i < NUM_ROUNDS; ++i) {
-		if (ripc_send_short(1, 4, msg_array, length_array, 1))
+		if (ripc_send_short(my_service_id, 4, msg_array, length_array, 1))
 			continue;
-		ripc_receive(1, &short_items, &long_items);
+		ripc_receive(my_service_id, &from, &short_items, &long_items);
 		//printf("Received item\n");
 		//printf("Message reads: %u\n", *(int *)short_items[0]);
 		recvd++;
