@@ -11,6 +11,7 @@ struct resolver_msg {
 	uint16_t lid;
 	uint32_t service_qpn;
 	uint32_t response_qpn;
+	uint32_t resolver_qpn;
 };
 
 void dispatch_responder(void);

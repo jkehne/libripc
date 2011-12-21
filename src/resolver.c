@@ -136,6 +136,8 @@ void *start_responder(void *arg) {
 	response = (struct resolver_msg *)resp_mr->addr;
 	response->lid = context.lid;
 	response->type = RIPC_MSG_RESOLVE_REPLY;
+	response->resolver_qpn = mcast_qp->qp_num;
+	response->response_qpn = unicast_qp->qp_num;
 
 	resp_sge.addr = (uint64_t)response;
 	resp_sge.length = sizeof(struct resolver_msg);
@@ -216,12 +218,16 @@ void *start_responder(void *arg) {
 
 		pthread_mutex_lock(&remotes_mutex);
 
-		if (!context.remotes[msg->src_service_id])
+		if (!context.remotes[msg->src_service_id]) {
 			context.remotes[msg->src_service_id] =
-					malloc(sizeof(struct service_id));
+					malloc(sizeof(struct remote_context));
+			bzero(context.remotes[msg->src_service_id], sizeof(struct remote_context));
+			context.remotes[msg->src_service_id]->state = RIPC_RDMA_DISCONNECTED;
+		}
 
 		context.remotes[msg->src_service_id]->ah = tmp_ah;
 		context.remotes[msg->src_service_id]->qp_num = msg->service_qpn;
+		context.remotes[msg->src_service_id]->resolver_qp = msg->resolver_qpn;
 
 		pthread_mutex_unlock(&remotes_mutex);
 		DEBUG("Cached remote contact info");
@@ -298,6 +304,7 @@ void resolve(uint16_t src, uint16_t dest) {
 	msg->service_qpn = context.services[src]->qp->qp_num;
 	pthread_mutex_unlock(&services_mutex);
 	msg->response_qpn = unicast_qp->qp_num;
+	msg->resolver_qpn = mcast_qp->qp_num;
 
 	sge.addr = (uint64_t)msg;
 	sge.length = sizeof(struct resolver_msg);
@@ -353,10 +360,14 @@ void resolve(uint16_t src, uint16_t dest) {
 
 	pthread_mutex_lock(&remotes_mutex);
 
-	if (!context.remotes[dest])
+	if (!context.remotes[dest]) {
 		context.remotes[dest] = malloc(sizeof(struct remote_context));
+		bzero(context.remotes[dest], sizeof(struct remote_context));
+		context.remotes[dest]->state = RIPC_RDMA_DISCONNECTED;
+	}
 	context.remotes[dest]->ah = tmp_ah;
 	context.remotes[dest]->qp_num = msg->service_qpn;
+	context.remotes[dest]->resolver_qp = msg->resolver_qpn;
 
 	pthread_mutex_unlock(&remotes_mutex);
 }
