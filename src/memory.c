@@ -42,7 +42,7 @@ struct ibv_mr *used_buf_list_get(void *addr) {
 	struct mem_buf_list *ptr = used_buffers;
 	struct mem_buf_list *prev = NULL;
 
-	pthread_mutex_unlock(&used_list_mutex);
+	pthread_mutex_lock(&used_list_mutex);
 	while(ptr) {
 		if (((uint64_t)addr >= (uint64_t)ptr->mr->addr)
 				&& ((uint64_t)addr <= (uint64_t)ptr->mr->addr + ptr->mr->length)) {
@@ -65,12 +65,13 @@ struct ibv_mr *used_buf_list_get(void *addr) {
 
 void free_buf_list_add(struct ibv_mr *item) {
 	struct mem_buf_list *container = malloc(sizeof(struct mem_buf_list));
+	assert(container);
 	container->mr = item;
+	container->next = NULL;
 
 	pthread_mutex_lock(&free_list_mutex);
 
 	if (available_buffers_tail == NULL) {
-		container->next = NULL;
 		available_buffers = container;
 		available_buffers_tail = container;
 	} else {

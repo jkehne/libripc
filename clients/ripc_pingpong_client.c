@@ -5,7 +5,7 @@
 #include "config.h"
 #include "common.h"
 
-#define NUM_ROUNDS 100000
+#define NUM_ROUNDS 10000
 #define PACKET_SIZE 2000
 
 int main(void) {

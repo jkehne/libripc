@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <sys/types.h>
 
-#define RECV_BUF_SIZE 65536
+#define RECV_BUF_SIZE 2100
 #define NUM_RECV_BUFFERS 10
 
 #ifdef __cplusplus

@@ -313,9 +313,9 @@ void resolve(uint16_t src, uint16_t dest) {
 
 	DEBUG("Posting multicast send request");
 
-	ibv_post_send(unicast_qp, &wr, &bad_wr);
+	ibv_post_send(mcast_qp, &wr, &bad_wr);
 
-	while (ibv_poll_cq(mcast_send_cq, 1, &wc)) { /* wait */ }
+	while ( ! ibv_poll_cq(mcast_send_cq, 1, &wc)) { /* wait */ }
 
 	ripc_buf_free(msg);
 
