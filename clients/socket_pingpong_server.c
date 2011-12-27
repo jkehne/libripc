@@ -7,8 +7,6 @@
 #include <sys/types.h>
 #include <netinet/in.h>
 
-#define PACKET_SIZE 2000
-
 int main(void) {
 	int listen_sockfd, conn_sockfd;
 	int length;

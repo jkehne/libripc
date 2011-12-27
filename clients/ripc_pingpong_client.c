@@ -5,21 +5,18 @@
 #include "config.h"
 #include "common.h"
 
-#define NUM_ROUNDS 100
-#define PACKET_SIZE 2000
-
 int main(void) {
 	uint16_t my_service_id = ripc_register_random_service_id();
 	sleep(1);
-	int i, len, recvd = 0;
+	int i, j, len, recvd = 0;
 
 	//for benchmarking
 	struct timeval before, after;
 	uint64_t before_usec, after_usec, diff;
 
 	//for sending
-	void *msg_array[1];
-	int length_array[1];
+	void *msg_array[WORDS_PER_PACKET];
+	int length_array[WORDS_PER_PACKET];
 
 	//for receiving
 	void **short_items = NULL, **long_items = NULL;
@@ -27,20 +24,22 @@ int main(void) {
 
 	gettimeofday(&before, NULL);
 
-	msg_array[0] = ripc_buf_alloc(PACKET_SIZE);
-	bzero(msg_array[0], PACKET_SIZE);
-	length_array[0] = PACKET_SIZE;
+	for (i = 0; i < WORDS_PER_PACKET; ++i) {
+		msg_array[i] = ripc_buf_alloc(PACKET_SIZE);
+		bzero(msg_array[i], PACKET_SIZE);
+		length_array[i] = PACKET_SIZE;
+	}
 	printf("Starting loop\n");
 
 	for (i = 0; i < NUM_ROUNDS; ++i) {
-		if (ripc_send_short(my_service_id, 4, msg_array, length_array, 1))
+		if (ripc_send_short(my_service_id, 4, msg_array, length_array, WORDS_PER_PACKET))
 			continue;
 		ripc_receive(my_service_id, &from, &short_items, &long_items);
 		//printf("Received item\n");
 		//printf("Message reads: %u\n", *(int *)short_items[0]);
 		recvd++;
-
-		ripc_buf_free(short_items[0]);
+		for (j = 0; j < WORDS_PER_PACKET; ++j)
+			ripc_buf_free(short_items[j]);
 		free(short_items);
 		//sleep(1);
 	}

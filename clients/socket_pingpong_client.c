@@ -7,9 +7,6 @@
 #include <sys/types.h>
 #include <netinet/in.h>
 
-#define NUM_ROUNDS 1000000
-#define PACKET_SIZE 2000
-
 int main(void) {
 	int sockfd;
 	struct sockaddr_in serv_addr;
@@ -36,7 +33,7 @@ int main(void) {
 
 	serv_addr.sin_family = AF_INET;
 	serv_addr.sin_port = htons(12345);
-	serv_addr.sin_addr.s_addr = inet_addr("192.168.10.10");
+	serv_addr.sin_addr.s_addr = inet_addr("10.0.0.1");
 
 	if (connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr))) {
 		panic("Error connecting");
