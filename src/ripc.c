@@ -524,15 +524,21 @@ ripc_receive(
 					+ sizeof(struct msg_header)
 					+ sizeof(struct short_header) * hdr->short_words);
 
-	*short_items = malloc(sizeof(void *) * hdr->short_words);
-	assert(*short_items);
+	if (hdr->short_words) {
+		*short_items = malloc(sizeof(void *) * hdr->short_words);
+		assert(*short_items);
+	} else
+		*short_items = NULL;
 
 	for (i = 0; i < hdr->short_words; ++i) {
 		(*short_items)[i] = (void *)(wr->sg_list->addr + msg[i].offset);
 	}
 
-	*long_items = malloc(sizeof(void *) * hdr->long_words);
-	assert(*long_items);
+	if (hdr->long_words) {
+		*long_items = malloc(sizeof(void *) * hdr->long_words);
+		assert(*long_items);
+	} else
+		*long_items = NULL;
 
 	for (i = 0; i < hdr->long_words; ++i) {
 		DEBUG("Received long item: addr %#lx, length %u, qp %u, rkey %#lx",
@@ -541,7 +547,7 @@ ripc_receive(
 				long_msg[i].qp_num,
 				long_msg[i].rkey);
 
-		struct ibv_mr *rdma_mr = ripc_alloc_recv_buf(long_msg[i].length + 100);
+		struct ibv_mr *rdma_mr = ripc_alloc_recv_buf(long_msg[i].length);
 		DEBUG("Allocated rdma mr: addr %p, length %u",
 				rdma_mr->addr,
 				rdma_mr->length);
@@ -590,6 +596,8 @@ ripc_receive(
 
 	*from_service_id = hdr->from;
 
+	if (! hdr->short_words)
+		ripc_buf_free(hdr);
 	free(wr->sg_list);
 	free(wr);
 

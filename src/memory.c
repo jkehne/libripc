@@ -117,7 +117,7 @@ struct ibv_mr *ripc_alloc_recv_buf(size_t size) {
 
 	mr = free_buf_list_get(size);
 	if (mr) {
-		DEBUG("Got hit in free list!");
+		DEBUG("Got hit in free list: Buffer at %p, size %u", mr->addr, mr->length);
 		used_buf_list_add(mr);
 		return mr;
 	}
@@ -150,9 +150,13 @@ void *ripc_buf_alloc(size_t size) {
 }
 
 void ripc_buf_free(void *buf) {
+	DEBUG("Putting buffer %p into free list", buf);
 	struct ibv_mr *mr = used_buf_list_get(buf);
 	if (mr)
 		free_buf_list_add(mr);
+	else {
+		DEBUG("Buffer not found!");
+	}
 }
 
 struct ibv_mr *ripc_buf_register(void *buf, uint32_t size) {
