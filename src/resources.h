@@ -15,7 +15,7 @@ struct rdma_connect_msg {
        uint32_t response_qpn;
 };
 
-
+void dump_qp_state(struct ibv_qp *qp);
 
 void alloc_queue_state(
 		struct ibv_comp_channel **cchannel,

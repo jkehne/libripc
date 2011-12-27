@@ -152,11 +152,14 @@ void handle_rdma_connect(struct rdma_connect_msg *msg) {
 		goto error;
 	}
 
+	uint32_t psn = rand() & 0xffffff;
+	DEBUG("My psn is %u", psn);
+
 	attr.qp_state 	    = IBV_QPS_RTS;
 	attr.timeout 	    = 14;
 	attr.retry_cnt 	    = 7;
 	attr.rnr_retry 	    = 7;
-	attr.sq_psn 	    = 0;
+	attr.sq_psn 	    = psn;
 	attr.max_rd_atomic  = 1;
 	if (ibv_modify_qp(remote->rdma_qp, &attr,
 			  IBV_QP_STATE              |
@@ -169,13 +172,19 @@ void handle_rdma_connect(struct rdma_connect_msg *msg) {
 		goto error;
 	}
 
+	post_new_recv_buf(remote->rdma_qp);
+
 	//all done? Then we're connected now :)
 	remote->state = RIPC_RDMA_ESTABLISHED;
+
+#ifdef HAVE_DEBUG
+	dump_qp_state(remote->rdma_qp);
+#endif
 
 	//now send a reply to let the other side know our details
 	msg->lid = context.lid;
 	msg->qpn = remote->rdma_qp->qp_num;
-	msg->psn = 0;
+	msg->psn = psn;
 	//msg->response_qpn = rdma_qp->qp_num;
 	msg->type = RIPC_RDMA_CONN_REPLY;
 
@@ -209,9 +218,12 @@ void handle_rdma_connect(struct rdma_connect_msg *msg) {
 				msg->response_qpn);
 		goto error;
 	} else {
-		DEBUG("Sent rdma connect response to remote %u (qp %u)",
+		DEBUG("Sent rdma connect response to remote %u (qp %u), containing lid %u, qpn %u and psn %u",
 				msg->src_service_id,
-				msg->response_qpn);
+				msg->response_qpn,
+				msg->lid,
+				msg->qpn,
+				msg->psn);
 	}
 
 	struct ibv_wc wc;

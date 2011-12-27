@@ -253,13 +253,16 @@ void create_rdma_connection(uint16_t src, uint16_t dest) {
                goto error;
        }
 
+       uint32_t psn = rand() & 0xffffff;
+       DEBUG("My psn is %u", psn);
+
        //This is as far as we can go on our own. Now notify the other side.
 
        struct ibv_mr *connect_mr = ripc_alloc_recv_buf(sizeof(struct rdma_connect_msg));
        struct rdma_connect_msg *msg = (struct rdma_connect_msg *)connect_mr->addr;
        msg->type = RIPC_RDMA_CONN_REQ;
        msg->qpn = remote->rdma_qp->qp_num;
-       msg->psn = 0;
+       msg->psn = psn;
        msg->src_service_id = src;
        msg->dest_service_id = dest;
        msg->lid = context.lid;
@@ -321,12 +324,12 @@ void create_rdma_connection(uint16_t src, uint16_t dest) {
 
        attr.qp_state = IBV_QPS_RTR;
        attr.path_mtu = IBV_MTU_2048;
-       attr.dest_qp_num = msg->qpn;
-       attr.rq_psn = msg->psn;
+       attr.dest_qp_num = response_msg->qpn;
+       attr.rq_psn = response_msg->psn;
        attr.max_dest_rd_atomic = 1;
        attr.min_rnr_timer = 12;
        attr.ah_attr.is_global = 0;
-       attr.ah_attr.dlid = msg->lid;
+       attr.ah_attr.dlid = response_msg->lid;
        attr.ah_attr.sl = 0;
        attr.ah_attr.src_path_bits = 0;
        attr.ah_attr.port_num = 1;
@@ -349,7 +352,7 @@ void create_rdma_connection(uint16_t src, uint16_t dest) {
        attr.timeout 	    = 14;
        attr.retry_cnt 	    = 7;
        attr.rnr_retry 	    = 7;
-       attr.sq_psn 	    = 0;
+       attr.sq_psn 	    = psn;
        attr.max_rd_atomic  = 1;
        if (ibv_modify_qp(remote->rdma_qp, &attr,
     		   IBV_QP_STATE              |
@@ -362,8 +365,14 @@ void create_rdma_connection(uint16_t src, uint16_t dest) {
     	   goto error;
        }
 
+       post_new_recv_buf(remote->rdma_qp);
+
        //all done? Then we're connected now :)
        remote->state = RIPC_RDMA_ESTABLISHED;
+
+#ifdef HAVE_DEBUG
+       dump_qp_state(remote->rdma_qp);
+#endif
 
        pthread_mutex_unlock(&remotes_mutex);
 
@@ -384,3 +393,46 @@ void create_rdma_connection(uint16_t src, uint16_t dest) {
        remote->state = RIPC_RDMA_DISCONNECTED;
        pthread_mutex_unlock(&remotes_mutex);
 }
+
+void dump_qp_state(struct ibv_qp *qp) {
+	struct ibv_qp_attr attr;
+	struct ibv_qp_init_attr init_attr;
+	ibv_query_qp(qp, &attr, 0xffffffff, &init_attr);
+
+	ERROR("State for QP %u:", qp->qp_num);
+	ERROR("QP type: %u", init_attr.qp_type);
+	ERROR("dlid: %u", attr.ah_attr.dlid);
+	ERROR("dest QP: %u", attr.dest_qp_num);
+	ERROR("dest port: %u", attr.ah_attr.port_num);
+	ERROR("max inline data: %u", attr.cap.max_inline_data);
+	ERROR("max recv sge: %u", attr.cap.max_recv_sge);
+	ERROR("max send sge: %u", attr.cap.max_send_sge);
+	ERROR("max recv WR: %u", attr.cap.max_recv_wr);
+	ERROR("max send WR: %u", attr.cap.max_send_wr);
+	ERROR("cur state: %u", attr.cur_qp_state);
+	ERROR("state: %u", attr.qp_state);
+	ERROR("min RNR timer: %u", attr.min_rnr_timer);
+	ERROR("path migration state: %u", attr.path_mig_state);
+	ERROR("mtu: %u", attr.path_mtu);
+	ERROR("pkey index: %u", attr.pkey_index);
+	ERROR("port num: %u", attr.port_num);
+	ERROR("qkey: %#lx", attr.qkey);
+	ERROR("access flags: %#lx", attr.qp_access_flags);
+	ERROR("retry count: %u", attr.retry_cnt);
+	ERROR("RNR retry count: %u", attr.rnr_retry);
+	ERROR("RQ psn: %u", attr.rq_psn);
+	ERROR("SQ psn: %u", attr.sq_psn);
+	ERROR("SQ draining: %u", attr.sq_draining);
+	ERROR("timeout: %u", attr.timeout);
+}
+
+
+
+
+
+
+
+
+
+
+

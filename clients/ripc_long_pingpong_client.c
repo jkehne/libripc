@@ -6,7 +6,7 @@
 #include "common.h"
 
 #define NUM_ROUNDS 100
-#define PACKET_SIZE 2000
+#define PACKET_SIZE 20000000
 
 int main(void) {
 	uint16_t my_service_id = ripc_register_random_service_id();
@@ -33,15 +33,15 @@ int main(void) {
 	printf("Starting loop\n");
 
 	for (i = 0; i < NUM_ROUNDS; ++i) {
-		if (ripc_send_short(my_service_id, 4, msg_array, length_array, 1))
+		if (ripc_send_long(my_service_id, 4, msg_array, length_array, 1))
 			continue;
 		ripc_receive(my_service_id, &from, &short_items, &long_items);
 		//printf("Received item\n");
 		//printf("Message reads: %u\n", *(int *)short_items[0]);
 		recvd++;
 
-		ripc_buf_free(short_items[0]);
-		free(short_items);
+		ripc_buf_free(long_items[0]);
+		free(long_items);
 		//sleep(1);
 	}
 

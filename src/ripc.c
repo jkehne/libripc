@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <pthread.h>
+#include <errno.h>
 #include "ripc.h"
 #include "common.h"
 #include "memory.h"
@@ -18,6 +19,10 @@ bool init(void) {
 
 	srand(time(NULL));
 	struct ibv_device **sys_devices = ibv_get_device_list(NULL);
+	if (!sys_devices) {
+		panic("Failed to get device list: %s", strerror(errno));
+	}
+
 	struct ibv_context *device_context = NULL;
 	uint32_t i;
 	context.device_context = NULL;
@@ -376,11 +381,17 @@ ripc_send_long(
 		assert(mr->length >= length[i]); //the hardware won't allow it anyway
 
 		msg[i].addr = (uint64_t)mr->addr;
-		msg[i].length = mr->length;
+		msg[i].length = length[i];
 		pthread_mutex_lock(&remotes_mutex);
 		msg[i].qp_num = context.remotes[dest]->rdma_qp->qp_num;
 		pthread_mutex_unlock(&remotes_mutex);
 		msg[i].rkey = mr->rkey;
+
+		DEBUG("Long word %u: addr %p, length %u, rkey %#lx",
+				i,
+				mr->addr,
+				length[i],
+				mr->rkey);
 	}
 
 	//message item done, now send it
@@ -391,6 +402,7 @@ ripc_send_long(
 	wr.send_flags = IBV_SEND_SIGNALED;
 	wr.sg_list = &sge;
 	wr.wr_id = 0xdeadbeef;
+
 	pthread_mutex_lock(&remotes_mutex);
 	wr.wr.ud.ah = context.remotes[dest]->ah;
 	wr.wr.ud.remote_qpn = context.remotes[dest]->qp_num;
@@ -513,9 +525,14 @@ ripc_receive(
 					+ sizeof(struct short_header) * hdr->short_words);
 
 	*short_items = malloc(sizeof(void *) * hdr->short_words);
+	assert(*short_items);
+
 	for (i = 0; i < hdr->short_words; ++i) {
 		(*short_items)[i] = (void *)(wr->sg_list->addr + msg[i].offset);
 	}
+
+	*long_items = malloc(sizeof(void *) * hdr->long_words);
+	assert(*long_items);
 
 	for (i = 0; i < hdr->long_words; ++i) {
 		DEBUG("Received long item: addr %#lx, length %u, qp %u, rkey %#lx",
@@ -523,6 +540,52 @@ ripc_receive(
 				long_msg[i].length,
 				long_msg[i].qp_num,
 				long_msg[i].rkey);
+
+		struct ibv_mr *rdma_mr = ripc_alloc_recv_buf(long_msg[i].length + 100);
+		DEBUG("Allocated rdma mr: addr %p, length %u",
+				rdma_mr->addr,
+				rdma_mr->length);
+
+		struct ibv_sge rdma_sge;
+		rdma_sge.addr = (uint64_t)rdma_mr->addr;
+		rdma_sge.length = long_msg[i].length;
+		rdma_sge.lkey = rdma_mr->lkey;
+
+		struct ibv_send_wr rdma_wr;
+		rdma_wr.next = NULL;
+		rdma_wr.num_sge = 1;
+		rdma_wr.opcode = IBV_WR_RDMA_READ;
+		rdma_wr.send_flags = IBV_SEND_SIGNALED;
+		rdma_wr.sg_list = &rdma_sge;
+		rdma_wr.wr_id = 0xdeadbeef;
+		rdma_wr.wr.rdma.remote_addr = long_msg[i].addr;
+		rdma_wr.wr.rdma.rkey = long_msg[i].rkey;
+		struct ibv_send_wr *rdma_bad_wr;
+
+		pthread_mutex_lock(&remotes_mutex);
+		if (ibv_post_send(
+				context.remotes[hdr->from]->rdma_qp,
+				&rdma_wr,
+				&rdma_bad_wr)) {
+			ERROR("Failed to post rdma read for message item %u", i);
+		} else {
+			DEBUG("Posted rdma read for message item %u", i);
+		}
+
+		struct ibv_wc rdma_wc;
+		while (!(ibv_poll_cq(context.remotes[hdr->from]->rdma_send_cq, 1, &rdma_wc))); //polling is probably faster here
+		//ibv_ack_cq_events(context.services[src]->recv_cq, 1);
+		DEBUG("received completion message!");
+		if (rdma_wc.status) {
+			ERROR("Send result: %d", rdma_wc.status);
+			ERROR("QP state: %d", context.remotes[hdr->from]->rdma_qp->state);
+		} else {
+			DEBUG("Result: %d", rdma_wc.status);
+		}
+
+		pthread_mutex_unlock(&remotes_mutex);
+
+		(*long_items)[i] = rdma_mr->addr;
 	}
 
 	*from_service_id = hdr->from;
