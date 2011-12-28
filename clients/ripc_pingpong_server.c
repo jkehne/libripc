@@ -14,18 +14,20 @@ int main(void) {
 	for (i = 0; i < WORDS_PER_PACKET; ++i)
 		length[i] = PACKET_SIZE;
 
-	int num_items, count = 0;
-	uint16_t from;
+	int count = 0;
+	uint16_t from, num_short, num_long;
 
 	printf("Starting loop\n");
 	while(true) {
 		DEBUG("Waiting for message");
 
-		num_items = ripc_receive(
+		ripc_receive(
 				SERVER_SERVICE_ID,
 				&from,
 				&short_items,
-				&long_items);
+				&num_short,
+				&long_items,
+				&num_long);
 
 		DEBUG("Received message: %d\n", *(int *)short_items[0]);
 		//printf("pingpong %d\n", ++count);
@@ -35,10 +37,14 @@ int main(void) {
 				from,
 				short_items,
 				length,
-				WORDS_PER_PACKET);
+				num_short);
 
-		for (i = 0; i < WORDS_PER_PACKET; ++i)
-			ripc_buf_free(short_items[i]); //returns receive buffer to pool
+		/*
+		 *  return receive buffer to pool. Note that we only have to free one
+		 *  item of the array here, as all array elements are in the same
+		 *  receive buffer.
+		 */
+		ripc_buf_free(short_items[0]);
 		free(short_items); //frees the array itself
 	}
 	return EXIT_SUCCESS;

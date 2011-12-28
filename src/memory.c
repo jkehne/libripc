@@ -12,13 +12,17 @@
 struct mem_buf_list {
 	struct ibv_mr *mr;
 	struct mem_buf_list *next;
+	void *base; //these two members are for receive windows
+	size_t size;
 };
 
 struct mem_buf_list *used_buffers = NULL;
 struct mem_buf_list *available_buffers = NULL;
 struct mem_buf_list *available_buffers_tail = NULL;
+struct mem_buf_list *receive_windows = NULL;
+struct mem_buf_list *receive_windows_tail = NULL;
 
-pthread_mutex_t used_list_mutex, free_list_mutex;
+pthread_mutex_t used_list_mutex, free_list_mutex, recv_window_mutex;
 
 void used_buf_list_add(struct ibv_mr *item) {
 	struct mem_buf_list *container = malloc(sizeof(struct mem_buf_list));
@@ -39,13 +43,14 @@ void used_buf_list_add(struct ibv_mr *item) {
 }
 
 struct ibv_mr *used_buf_list_get(void *addr) {
+	pthread_mutex_lock(&used_list_mutex);
+
 	struct mem_buf_list *ptr = used_buffers;
 	struct mem_buf_list *prev = NULL;
 
-	pthread_mutex_lock(&used_list_mutex);
 	while(ptr) {
 		if (((uint64_t)addr >= (uint64_t)ptr->mr->addr)
-				&& ((uint64_t)addr <= (uint64_t)ptr->mr->addr + ptr->mr->length)) {
+				&& ((uint64_t)addr < (uint64_t)ptr->mr->addr + ptr->mr->length)) {
 			if (prev)
 				prev->next = ptr->next;
 			else //first element in list
@@ -84,10 +89,11 @@ void free_buf_list_add(struct ibv_mr *item) {
 }
 
 struct ibv_mr *free_buf_list_get(size_t size) {
+	pthread_mutex_lock(&free_list_mutex);
+
 	struct mem_buf_list *ptr = available_buffers;
 	struct mem_buf_list *prev = NULL;
 
-	pthread_mutex_lock(&free_list_mutex);
 	while(ptr) {
 		if (ptr->mr->length >= size) {
 			if (prev)
@@ -109,6 +115,62 @@ struct ibv_mr *free_buf_list_get(size_t size) {
 		ptr = ptr->next;
 	}
 	pthread_mutex_unlock(&free_list_mutex);
+	return NULL; //not found
+}
+
+void recv_window_list_add(struct ibv_mr *item, void *base, size_t size) {
+	DEBUG("Registering receive window at address %p, size %u",
+			base,
+			size);
+
+	struct mem_buf_list *container = malloc(sizeof(struct mem_buf_list));
+	assert(container);
+	container->mr = item;
+	container->next = NULL;
+	container->size = size;
+	container->base = base;
+
+	pthread_mutex_lock(&recv_window_mutex);
+
+	if (receive_windows_tail == NULL) {
+		receive_windows = container;
+		receive_windows_tail = container;
+	} else {
+		receive_windows_tail->next = container;
+		receive_windows_tail = container;
+	}
+
+	pthread_mutex_unlock(&recv_window_mutex);
+	return;
+}
+
+void *recv_window_list_get(size_t size) {
+	pthread_mutex_lock(&recv_window_mutex);
+
+	struct mem_buf_list *ptr = receive_windows;
+	struct mem_buf_list *prev = NULL;
+
+	while(ptr) {
+		if (ptr->size >= size) {
+			if (prev)
+				prev->next = ptr->next;
+			else //first element in list
+				receive_windows = ptr->next;
+				//NOTE: If ptr is the only element, then ptr->next is NULL
+			if (ptr == receive_windows_tail) {
+				receive_windows_tail = prev;
+				if (prev)
+					prev->next = NULL;
+			}
+			pthread_mutex_unlock(&recv_window_mutex);
+			void *ret = ptr->base;
+			free(ptr);
+			return ret;
+		}
+		prev = ptr;
+		ptr = ptr->next;
+	}
+	pthread_mutex_unlock(&recv_window_mutex);
 	return NULL; //not found
 }
 
@@ -159,16 +221,23 @@ void ripc_buf_free(void *buf) {
 	}
 }
 
-struct ibv_mr *ripc_buf_register(void *buf, uint32_t size) {
-	struct ibv_mr *mr = ibv_reg_mr(
-			context.pd,
-			buf,
-			size,
-			IBV_ACCESS_LOCAL_WRITE |
-			IBV_ACCESS_REMOTE_READ |
-			IBV_ACCESS_REMOTE_WRITE);
+uint8_t ripc_buf_register(void *buf, size_t size) {
+	struct ibv_mr *mr;
+	mr = used_buf_list_get(buf);
+	if (mr && ((uint64_t)buf + size > (uint64_t)mr->addr + mr->length)) {
+		used_buf_list_add(mr);
+		return 1; //overlapping buffers are unsupported
+	}
+	if (!mr)
+		mr = ibv_reg_mr(
+				context.pd,
+				buf,
+				size,
+				IBV_ACCESS_LOCAL_WRITE |
+				IBV_ACCESS_REMOTE_READ |
+				IBV_ACCESS_REMOTE_WRITE);
 	used_buf_list_add(mr);
-	return mr;
+	return mr ? 0 : 1;
 }
 
 void post_new_recv_buf(struct ibv_qp *qp) {
@@ -197,4 +266,40 @@ void post_new_recv_buf(struct ibv_qp *qp) {
 				mr->addr,
 				qp->qp_num);
 	}
+}
+
+uint8_t ripc_reg_recv_window(void *base, size_t size) {
+	struct ibv_mr *mr;
+	assert(size > 0);
+
+	if (base == NULL) { //the user wants us to specify the buffer
+		DEBUG("No base specified, allocating new buffer");
+		mr = ripc_alloc_recv_buf(size);
+		recv_window_list_add(mr, base, size);
+		return 0;
+	}
+
+	mr = used_buf_list_get(base); //are we registered yet?
+	if (mr) {
+		DEBUG("Found buffer mr: Base address %p, size %u",
+				mr->addr,
+				mr->length);
+		used_buf_list_add(mr);
+		if ((uint64_t)base + size <= (uint64_t)mr->addr + mr->length) { //is the buffer big enough?
+			recv_window_list_add(mr, base, size);
+			return 0;
+		}
+		DEBUG("Receive buffer is too small, aborting");
+		return 1; //buffer too small, and overlapping buffers are not supported
+	}
+
+	// not registered yet
+	DEBUG("mr not found, registering memory area");
+	if (ripc_buf_register(base, size))
+		return 1; //registration failed
+	DEBUG("Successfully registered memory area");
+	mr = used_buf_list_get(base);
+	used_buf_list_add(mr);
+	recv_window_list_add(mr, base, size);
+	return 0;
 }

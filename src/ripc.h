@@ -16,6 +16,8 @@ uint8_t ripc_register_service_id(int);
 
 void *ripc_buf_alloc(size_t size);
 void ripc_buf_free(void *buf);
+uint8_t ripc_reg_recv_window(void *base, size_t size);
+uint8_t ripc_buf_register(void *buf, size_t size);
 
 uint8_t ripc_send_short(
 		uint16_t src,
@@ -37,7 +39,9 @@ uint8_t ripc_receive(
 		uint16_t service_id,
 		uint16_t *from_service_id,
 		void ***short_items,
-		void ***long_items
+		uint16_t *num_short_items,
+		void ***long_items,
+		uint16_t *num_long_items
 		);
 
 #ifdef __cplusplus

@@ -25,14 +25,16 @@ int main(void) {
 
 	//for receiving
 	void **short_items = NULL, **long_items = NULL;
-	uint16_t from;
+	uint16_t from, num_short, num_long;
 
 	gettimeofday(&before, NULL);
 
-	for (i = 0; i < WORDS_PER_PACKET; ++i) {
-		msg_array[i] = ripc_buf_alloc(PACKET_SIZE);
-		bzero(msg_array[i], PACKET_SIZE);
+	msg_array[0] = ripc_buf_alloc(PACKET_SIZE * WORDS_PER_PACKET);
+	bzero(msg_array[i], PACKET_SIZE * WORDS_PER_PACKET);
+	length_array[0] = PACKET_SIZE;
+	for (i = 1; i < WORDS_PER_PACKET; ++i) {
 		length_array[i] = PACKET_SIZE;
+		msg_array[i] = msg_array[0] + i * PACKET_SIZE;
 	}
 
 	printf("Starting loop\n");
@@ -46,17 +48,20 @@ int main(void) {
 				WORDS_PER_PACKET))
 			continue;
 
+		for (j = 0; j < WORDS_PER_PACKET; ++j)
+			ripc_reg_recv_window(msg_array[j], PACKET_SIZE);
+
 		ripc_receive(
 				my_service_id,
 				&from,
 				&short_items,
-				&long_items);
+				&num_short,
+				&long_items,
+				&num_long);
 
 		//printf("Received item\n");
 		//printf("Message reads: %u\n", *(int *)short_items[0]);
 		recvd++;
-		for (j = 0; j < WORDS_PER_PACKET; ++j)
-			ripc_buf_free(long_items[j]);
 		free(long_items);
 		//sleep(1);
 	}

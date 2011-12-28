@@ -13,17 +13,30 @@ int main(void) {
 	int length[WORDS_PER_PACKET];
 	for (i = 0; i < WORDS_PER_PACKET; ++i)
 		length[i] = PACKET_SIZE;
-	int num_items, count = 0;
-	uint16_t from;
+	int count = 0;
+	uint16_t from, num_short, num_long;
+
+	void *recv_buffers[WORDS_PER_PACKET];
+	recv_buffers[0] = ripc_buf_alloc(PACKET_SIZE * WORDS_PER_PACKET);
+	for (i = 1; i < WORDS_PER_PACKET; ++i) {
+		recv_buffers[i] = recv_buffers[0] + i * PACKET_SIZE;
+	}
 
 	printf("Starting loop\n");
 	while(true) {
+		DEBUG("Posting receive windows");
+		for (i = 0; i < WORDS_PER_PACKET; ++i) {
+			ripc_reg_recv_window(recv_buffers[i], PACKET_SIZE);
+		}
+
 		DEBUG("Waiting for message");
-		num_items = ripc_receive(
+		ripc_receive(
 				SERVER_SERVICE_ID,
 				&from,
 				&short_items,
-				&long_items);
+				&num_short,
+				&long_items,
+				&num_long);
 
 		DEBUG("Received message: %d\n", *(int *)long_items[0]);
 		//printf("pingpong %d\n", ++count);
@@ -33,10 +46,8 @@ int main(void) {
 				from,
 				long_items,
 				length,
-				WORDS_PER_PACKET);
+				num_long);
 
-		for (i = 0; i < WORDS_PER_PACKET; ++i)
-			ripc_buf_free(long_items[i]); //returns receive buffer to pool
 		free(long_items); //frees the array itself
 	}
 	return EXIT_SUCCESS;

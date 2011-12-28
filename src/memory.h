@@ -11,7 +11,7 @@
 #include <sys/types.h>
 #include <pthread.h>
 
-extern pthread_mutex_t used_list_mutex, free_list_mutex;
+extern pthread_mutex_t used_list_mutex, free_list_mutex, recv_window_mutex;
 
 struct ibv_mr *used_buf_list_get(void *addr);
 void used_buf_list_add(struct ibv_mr *item);
@@ -20,6 +20,5 @@ struct ibv_mr *free_buf_list_get(size_t size);
 void post_new_recv_buf(struct ibv_qp *qp);
 
 struct ibv_mr *ripc_alloc_recv_buf(size_t size);
-struct ibv_mr *ripc_buf_register(void *buf, uint32_t size);
 
 #endif /* MEMORY_H_ */

@@ -14,6 +14,7 @@ int main(void) {
 #endif
 	sleep(1);
 	int i, j, len, recvd = 0;
+	uint16_t num_short, num_long;
 
 	//for benchmarking
 	struct timeval before, after;
@@ -50,14 +51,20 @@ int main(void) {
 				my_service_id,
 				&from,
 				&short_items,
-				&long_items);
+				&num_short,
+				&long_items,
+				&num_long);
 
 		//printf("Received item\n");
 		//printf("Message reads: %u\n", *(int *)short_items[0]);
 		recvd++;
 
-		for (j = 0; j < WORDS_PER_PACKET; ++j)
-			ripc_buf_free(short_items[j]);
+		/*
+		 *  return receive buffer to pool. Note that we only have to free one
+		 *  item of the array here, as all array elements are in the same
+		 *  receive buffer.
+		 */
+		ripc_buf_free(short_items[0]);
 		free(short_items);
 		//sleep(1);
 	}

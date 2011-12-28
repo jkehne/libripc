@@ -85,6 +85,7 @@ bool init(void) {
 	pthread_mutex_init(&remotes_mutex, NULL);
 	pthread_mutex_init(&used_list_mutex, NULL);
 	pthread_mutex_init(&free_list_mutex, NULL);
+	pthread_mutex_init(&recv_window_mutex, NULL);
 	pthread_mutex_init(&rdma_connect_mutex, NULL);
 
 	alloc_queue_state( //queues for sending connection requests
@@ -445,7 +446,9 @@ ripc_receive(
 		uint16_t service_id,
 		uint16_t *from_service_id,
 		void ***short_items,
-		void ***long_items) {
+		uint16_t *num_short_items,
+		void ***long_items,
+		uint16_t *num_long_items) {
 
 	struct ibv_wc wc;
 	void *ctx;
@@ -453,6 +456,7 @@ ripc_receive(
 	struct ibv_comp_channel *cchannel;
 	struct ibv_qp *qp;
 	uint32_t i;
+	uint8_t ret = 0;
 
 	pthread_mutex_lock(&services_mutex);
 
@@ -547,13 +551,23 @@ ripc_receive(
 				long_msg[i].qp_num,
 				long_msg[i].rkey);
 
-		struct ibv_mr *rdma_mr = ripc_alloc_recv_buf(long_msg[i].length);
-		DEBUG("Allocated rdma mr: addr %p, length %u",
+		void *rdma_addr = recv_window_list_get(long_msg[i].length);
+		if (!rdma_addr) {
+			DEBUG("Not enough receive windows available! Discarding rest of message");
+			ret = 1;
+			break;
+		}
+		DEBUG("Found receive window at address %p", rdma_addr);
+
+		struct ibv_mr *rdma_mr = used_buf_list_get(rdma_addr);
+		used_buf_list_add(rdma_mr);
+
+		DEBUG("Found rdma mr: addr %p, length %u",
 				rdma_mr->addr,
 				rdma_mr->length);
 
 		struct ibv_sge rdma_sge;
-		rdma_sge.addr = (uint64_t)rdma_mr->addr;
+		rdma_sge.addr = (uint64_t)rdma_addr;
 		rdma_sge.length = long_msg[i].length;
 		rdma_sge.lkey = rdma_mr->lkey;
 
@@ -595,11 +609,13 @@ ripc_receive(
 	}
 
 	*from_service_id = hdr->from;
+	*num_short_items = hdr->short_words;
+	*num_long_items = hdr->long_words;
 
 	if (! hdr->short_words)
 		ripc_buf_free(hdr);
 	free(wr->sg_list);
 	free(wr);
 
-	return hdr->short_words + hdr->long_words;
+	return ret;
 }
