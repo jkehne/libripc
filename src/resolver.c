@@ -228,7 +228,7 @@ void handle_rdma_connect(struct rdma_connect_msg *msg) {
 
 	struct ibv_wc wc;
 
-	while ( ! ibv_poll_cq(unicast_qp, 1, &wc)) { /* wait */ }
+	while ( ! ibv_poll_cq(unicast_send_cq, 1, &wc)) { /* wait */ }
 
 	//msg is freed in caller!
 	return;
@@ -353,7 +353,6 @@ void *start_responder(void *arg) {
 	struct resolver_msg *msg, *response;
 	struct ibv_mr *resp_mr;
 	bzero(&ah_attr, sizeof(struct ibv_ah_attr)); //prepare for re-use
-	struct ibv_ah *tmp_ah;
 	bool for_us;
 
 	//prepare a response as far as possible
@@ -452,10 +451,6 @@ void *start_responder(void *arg) {
 		 * Now, cache the requestor's contact info, just in case we
 		 * want to send him a message in the future.
 		 */
-		ah_attr.dlid = msg->lid;
-		ah_attr.port_num = 1;
-		tmp_ah = ibv_create_ah(context.pd, &ah_attr);
-
 		pthread_mutex_lock(&remotes_mutex);
 
 		if (!context.remotes[msg->src_service_id]) {
@@ -465,9 +460,40 @@ void *start_responder(void *arg) {
 			context.remotes[msg->src_service_id]->state = RIPC_RDMA_DISCONNECTED;
 		}
 
-		context.remotes[msg->src_service_id]->ah = tmp_ah;
-		context.remotes[msg->src_service_id]->qp_num = msg->service_qpn;
-		context.remotes[msg->src_service_id]->resolver_qp = msg->resolver_qpn;
+		assert(context.remotes[msg->src_service_id]);
+
+		if ((context.remotes[msg->src_service_id]->qp_num != msg->service_qpn) ||
+				(context.remotes[msg->src_service_id]->resolver_qp != msg->resolver_qpn)) {
+
+			if (context.remotes[msg->src_service_id]->ah) {
+				ibv_destroy_ah(context.remotes[msg->src_service_id]->ah);
+				context.remotes[msg->src_service_id]->ah = NULL;
+			}
+
+			ah_attr.dlid = msg->lid;
+			ah_attr.port_num = 1;
+
+			context.remotes[msg->src_service_id]->ah =
+					ibv_create_ah(context.pd, &ah_attr);
+			context.remotes[msg->src_service_id]->qp_num = msg->service_qpn;
+			context.remotes[msg->src_service_id]->resolver_qp = msg->resolver_qpn;
+			context.remotes[msg->src_service_id]->state = RIPC_RDMA_DISCONNECTED;
+
+			if (context.remotes[msg->src_service_id]->rdma_qp) {
+				ibv_destroy_qp(context.remotes[msg->src_service_id]->rdma_qp);
+				context.remotes[msg->src_service_id]->rdma_qp = NULL;
+			}
+
+			if (context.remotes[msg->src_service_id]->rdma_send_cq) {
+				ibv_destroy_cq(context.remotes[msg->src_service_id]->rdma_send_cq);
+				context.remotes[msg->src_service_id]->rdma_send_cq = NULL;
+			}
+
+			if (context.remotes[msg->src_service_id]->rdma_recv_cq) {
+				ibv_destroy_cq(context.remotes[msg->src_service_id]->rdma_recv_cq);
+				context.remotes[msg->src_service_id]->rdma_recv_cq = NULL;
+			}
+		}
 
 		pthread_mutex_unlock(&remotes_mutex);
 		DEBUG("Cached remote contact info");

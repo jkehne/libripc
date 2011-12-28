@@ -6,7 +6,12 @@
 #include "common.h"
 
 int main(void) {
+#ifndef CLIENT_SERVICE_ID
 	uint16_t my_service_id = ripc_register_random_service_id();
+#else
+	uint16_t my_service_id = CLIENT_SERVICE_ID;
+	ripc_register_service_id(my_service_id);
+#endif
 	sleep(1);
 	int i, j, len, recvd = 0;
 
@@ -33,9 +38,20 @@ int main(void) {
 	printf("Starting loop\n");
 
 	for (i = 0; i < NUM_ROUNDS; ++i) {
-		if (ripc_send_long(my_service_id, 4, msg_array, length_array, WORDS_PER_PACKET))
+		if (ripc_send_long(
+				my_service_id,
+				SERVER_SERVICE_ID,
+				msg_array,
+				length_array,
+				WORDS_PER_PACKET))
 			continue;
-		ripc_receive(my_service_id, &from, &short_items, &long_items);
+
+		ripc_receive(
+				my_service_id,
+				&from,
+				&short_items,
+				&long_items);
+
 		//printf("Received item\n");
 		//printf("Message reads: %u\n", *(int *)short_items[0]);
 		recvd++;
