@@ -6,6 +6,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netinet/in.h>
+#include "../src/ripc.h"
 
 int main(void) {
 	int sockfd;
@@ -20,7 +21,7 @@ int main(void) {
 	//for sending
 	int length;
 	uint8_t payload[PACKET_SIZE];
-	bzero(&payload, PACKET_SIZE);
+	memset(&payload, 0, PACKET_SIZE);
 
 	//for receiving
 

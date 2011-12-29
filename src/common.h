@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <infiniband/verbs.h>
+#include "memory.h"
 
 #define ERROR(...) fprintf(stderr, "%s() (%s, line %u): ", __PRETTY_FUNCTION__, __FILE__, __LINE__); fprintf(stderr, __VA_ARGS__); fprintf(stderr,"\n")
 #define panic(...) fprintf(stderr, "%s() (%s, line %u): FATAL: ", __PRETTY_FUNCTION__, __FILE__, __LINE__); fprintf(stderr, __VA_ARGS__); fprintf(stderr,"\n"); exit(EXIT_FAILURE)
@@ -65,6 +66,7 @@ struct remote_context {
 	struct ibv_qp *rdma_qp;
 	struct ibv_cq *rdma_send_cq;
 	struct ibv_cq *rdma_recv_cq;
+	struct mem_buf_list *return_bufs;
 };
 
 struct library_context {
@@ -81,7 +83,7 @@ struct msg_header {
 	uint16_t to;
 	uint16_t short_words;
 	uint16_t long_words;
-	uint16_t return_bufs;
+	uint16_t new_return_bufs;
 };
 
 struct short_header {
@@ -90,10 +92,10 @@ struct short_header {
 };
 
 struct long_desc {
-	uint32_t qp_num;
 	uint64_t addr;
-	uint32_t length;
+	size_t length;
 	uint32_t rkey;
+	uint8_t transferred;
 };
 
 extern struct library_context context;

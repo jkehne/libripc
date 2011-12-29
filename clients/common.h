@@ -6,11 +6,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define NUM_ROUNDS 100000
-#define PACKET_SIZE 2000
+#define NUM_ROUNDS 10
+#define PACKET_SIZE RECV_BUF_SIZE - 100
 #define WORDS_PER_PACKET 1
 //#define CLIENT_SERVICE_ID 4
 #define SERVER_SERVICE_ID 1
+#define NUM_RETURN_BUFFERS 1
 
 #define ERROR(...) fprintf(stderr, "%s() (%s, line %u): ", __PRETTY_FUNCTION__, __FILE__, __LINE__); fprintf(stderr, __VA_ARGS__); fprintf(stderr,"\n")
 #define panic(...) fprintf(stderr, "%s() (%s, line %u): FATAL: ", __PRETTY_FUNCTION__, __FILE__, __LINE__); fprintf(stderr, __VA_ARGS__); fprintf(stderr,"\n"); exit(EXIT_FAILURE)

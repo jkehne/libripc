@@ -6,6 +6,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netinet/in.h>
+#include "../src/ripc.h"
 
 int main(void) {
 	int listen_sockfd, conn_sockfd;

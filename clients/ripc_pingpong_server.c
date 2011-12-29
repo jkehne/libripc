@@ -10,7 +10,7 @@ int main(void) {
 
 	ripc_register_service_id(SERVER_SERVICE_ID);
 	void **short_items = NULL, **long_items = NULL;
-	int length[WORDS_PER_PACKET];
+	size_t length[WORDS_PER_PACKET];
 	for (i = 0; i < WORDS_PER_PACKET; ++i)
 		length[i] = PACKET_SIZE;
 

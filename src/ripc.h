@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <sys/types.h>
 
-#define RECV_BUF_SIZE 2100
+#define RECV_BUF_SIZE 2000
 #define NUM_RECV_BUFFERS 10
 
 #ifdef __cplusplus
@@ -23,7 +23,7 @@ uint8_t ripc_send_short(
 		uint16_t src,
 		uint16_t dest,
 		void **buf,
-		uint32_t *length,
+		size_t *length,
 		uint32_t num_items
 		);
 
@@ -31,8 +31,11 @@ uint8_t ripc_send_long(
 		uint16_t src,
 		uint16_t dest,
 		void **buf,
-		uint32_t *length,
-		uint32_t num_items
+		size_t *length,
+		uint32_t num_items,
+		void **return_bufs,
+		size_t *return_buf_lengths,
+		uint32_t num_return_bufs
 		);
 
 uint8_t ripc_receive(

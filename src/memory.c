@@ -8,13 +8,7 @@
 #include "ripc.h"
 #include "common.h"
 #include "memory.h"
-
-struct mem_buf_list {
-	struct ibv_mr *mr;
-	struct mem_buf_list *next;
-	void *base; //these two members are for receive windows
-	size_t size;
-};
+#include <string.h>
 
 struct mem_buf_list *used_buffers = NULL;
 struct mem_buf_list *available_buffers = NULL;
@@ -174,7 +168,53 @@ void *recv_window_list_get(size_t size) {
 	return NULL; //not found
 }
 
+void return_buf_list_add(uint16_t remote, struct ibv_mr *item) {
+	struct mem_buf_list *container = malloc(sizeof(struct mem_buf_list));
+	container->mr = item;
+
+	pthread_mutex_lock(&remotes_mutex);
+
+	if (context.remotes[remote]->return_bufs == NULL) {
+		container->next = NULL;
+		context.remotes[remote]->return_bufs = container;
+	} else {
+		container->next = context.remotes[remote]->return_bufs;
+		context.remotes[remote]->return_bufs = container;
+	}
+
+	pthread_mutex_unlock(&remotes_mutex);
+	return;
+}
+
+struct ibv_mr *return_buf_list_get(uint16_t remote, size_t size) {
+	pthread_mutex_lock(&remotes_mutex);
+
+	struct mem_buf_list *ptr = context.remotes[remote]->return_bufs;
+	struct mem_buf_list *prev = NULL;
+
+	while(ptr) {
+		if (ptr->size >= size) {
+			if (prev)
+				prev->next = ptr->next;
+			else //first element in list
+				context.remotes[remote]->return_bufs = ptr->next;
+				//NOTE: If ptr is the only element, then ptr->next is NULL
+			pthread_mutex_unlock(&remotes_mutex);
+			struct ibv_mr *ret = ptr->mr;
+			free(ptr);
+			return ret;
+		}
+		prev = ptr;
+		ptr = ptr->next;
+	}
+	pthread_mutex_unlock(&remotes_mutex);
+	return NULL; //not found
+}
+
 struct ibv_mr *ripc_alloc_recv_buf(size_t size) {
+	if (!size)
+		return NULL;
+
 	struct ibv_mr *mr;
 
 	mr = free_buf_list_get(size);
@@ -198,7 +238,7 @@ struct ibv_mr *ripc_alloc_recv_buf(size_t size) {
 				IBV_ACCESS_LOCAL_WRITE |
 				IBV_ACCESS_REMOTE_READ |
 				IBV_ACCESS_REMOTE_WRITE);
-		DEBUG("mr buffer address is %p", mr->addr);
+		DEBUG("mr buffer address is %p, size %u", mr->addr, mr->length);
 		used_buf_list_add(mr);
 		return mr;
 	}

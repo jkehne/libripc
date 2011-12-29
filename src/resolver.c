@@ -352,7 +352,7 @@ void *start_responder(void *arg) {
 	struct ibv_sge resp_sge;
 	struct resolver_msg *msg, *response;
 	struct ibv_mr *resp_mr;
-	bzero(&ah_attr, sizeof(struct ibv_ah_attr)); //prepare for re-use
+	memset(&ah_attr, 0, sizeof(struct ibv_ah_attr)); //prepare for re-use
 	bool for_us;
 
 	//prepare a response as far as possible
@@ -456,7 +456,7 @@ void *start_responder(void *arg) {
 		if (!context.remotes[msg->src_service_id]) {
 			context.remotes[msg->src_service_id] =
 					malloc(sizeof(struct remote_context));
-			bzero(context.remotes[msg->src_service_id], sizeof(struct remote_context));
+			memset(context.remotes[msg->src_service_id], 0, sizeof(struct remote_context));
 			context.remotes[msg->src_service_id]->state = RIPC_RDMA_DISCONNECTED;
 		}
 
@@ -629,7 +629,7 @@ void resolve(uint16_t src, uint16_t dest) {
 
 	if (!context.remotes[dest]) {
 		context.remotes[dest] = malloc(sizeof(struct remote_context));
-		bzero(context.remotes[dest], sizeof(struct remote_context));
+		memset(context.remotes[dest], 0, sizeof(struct remote_context));
 		context.remotes[dest]->state = RIPC_RDMA_DISCONNECTED;
 	}
 	context.remotes[dest]->ah = tmp_ah;

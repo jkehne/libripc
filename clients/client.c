@@ -13,7 +13,7 @@ int main(void) {
 	void *msg_array[2];
 	msg_array[0] = ripc_buf_alloc(sizeof(i));
 	msg_array[1] = ripc_buf_alloc(strlen(msg));
-	int length_array[2];
+	size_t length_array[2];
 	for (i = 0; true; ++i) {
 		*(int *)msg_array[0] = i;
 		length_array[0] = sizeof(i);

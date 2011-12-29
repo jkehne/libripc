@@ -22,7 +22,7 @@ int main(void) {
 
 	//for sending
 	void *msg_array[WORDS_PER_PACKET];
-	int length_array[WORDS_PER_PACKET];
+	size_t length_array[WORDS_PER_PACKET];
 
 	//for receiving
 	void **short_items = NULL, **long_items = NULL;
@@ -32,7 +32,7 @@ int main(void) {
 
 	for (i = 0; i < WORDS_PER_PACKET; ++i) {
 		msg_array[i] = ripc_buf_alloc(PACKET_SIZE);
-		bzero(msg_array[i], PACKET_SIZE);
+		memset(msg_array[i], 0, PACKET_SIZE);
 		length_array[i] = PACKET_SIZE;
 	}
 	printf("Starting loop\n");
