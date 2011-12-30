@@ -156,12 +156,16 @@ ripc_send_short(
 		uint16_t dest,
 		void **buf,
 		size_t *length,
-		uint32_t num_items) {
+		uint32_t num_items,
+		void **return_bufs,
+		size_t *return_buf_lengths,
+		uint32_t num_return_bufs) {
 
 	DEBUG("Starting short send: %u -> %u (%u items)", src, dest, num_items);
 
 	uint32_t i;
 	size_t total_length = 0;
+	struct ibv_mr *mr;
 
 	for (i = 0; i < num_items; ++i)
 		total_length += length[i];
@@ -169,6 +173,7 @@ ripc_send_short(
 			RECV_BUF_SIZE
 			- sizeof(struct msg_header)
 			- sizeof(struct short_header) * num_items
+			- sizeof(struct long_desc) * num_return_bufs
 			))
 		return -1; //probably won't fit at receiving end either
 
@@ -178,28 +183,37 @@ ripc_send_short(
 			ripc_alloc_recv_buf(
 					sizeof(struct msg_header)
 					+ sizeof(struct short_header) * num_items
+					+ sizeof(struct long_desc) * num_return_bufs
 					);
 	struct msg_header *hdr = (struct msg_header *)header_mr->addr;
-	struct short_header *msg =
-			(struct short_header *)((uint64_t)hdr + sizeof(struct msg_header));
+	struct short_header *msg = (struct short_header *)(
+			(uint64_t)hdr
+			+ sizeof(struct msg_header));
+	struct long_desc *return_bufs_msg = (struct long_desc *)(
+			(uint64_t)hdr
+			+ sizeof(struct msg_header)
+			+ sizeof(struct short_header) * num_items);
+
 
 	hdr->type = RIPC_MSG_SEND;
 	hdr->from = src;
 	hdr->to = dest;
 	hdr->short_words = num_items;
 	hdr->long_words = 0;
-	hdr->new_return_bufs = 0;
+	hdr->new_return_bufs = num_return_bufs;
 
 	struct ibv_sge sge[num_items + 1]; //+1 for header
 	sge[0].addr = (uint64_t)header_mr->addr;
 	sge[0].length = sizeof(struct msg_header)
-							+ sizeof(struct short_header) * num_items;
+							+ sizeof(struct short_header) * num_items
+							+ sizeof(struct long_desc) * num_return_bufs;
 	sge[0].lkey = header_mr->lkey;
 
 	uint32_t offset =
 			40 //skip GRH
 			+ sizeof(struct msg_header)
-			+ sizeof(struct short_header) * num_items;
+			+ sizeof(struct short_header) * num_items
+			+ sizeof(struct long_desc) * num_return_bufs;
 
 	for (i = 0; i < num_items; ++i) {
 
@@ -231,29 +245,69 @@ ripc_send_short(
 		sge[i + 1].length = length[i];
 		sge[i + 1].lkey = mr->lkey;
 	}
-#if 0
-	struct ibv_ah *ah; //where to send it
 
-	if (context.remotes[dest] && context.remotes[dest]->ah)
-		ah = context.remotes[dest]->ah;
-	else {
-		DEBUG("Creating new address handle for remote %u", dest);
-		struct ibv_ah_attr ah_attr;
-		ah_attr.dlid = dest;
-		ah_attr.port_num = 1; //TODO: Make this dynamic
-		ah = ibv_create_ah(context.pd,&ah_attr);
-		assert(ah);
-		if (! context.remotes[dest])
-			context.remotes[dest] = malloc(sizeof(struct remote_context));
-		assert (context.remotes[dest]);
-		context.remotes[dest]->ah = ah;
-		context.remotes[dest]->qp_num = 0; //probably invalid anyway if the ah has changed
+	//process new return buffers
+	for (i = 0; i < num_return_bufs; ++i) {
+		if (return_buf_lengths[i] == 0)
+			continue;
+		DEBUG("Found return buffer: address %p, size %u",
+				return_bufs[i],
+				return_buf_lengths[i]);
+
+		if (return_bufs[i] == NULL) { //user wants us to allocate a buffer
+			DEBUG("User requested return buffer allocation");
+			mr = ripc_alloc_recv_buf(return_buf_lengths[i]);
+
+		} else {
+			mr = used_buf_list_get(return_bufs[i]);
+
+			if (!mr) { //not registered, try to register now
+				DEBUG("Return buffer not registered, attempting registration");
+				ripc_buf_register(return_bufs[i], return_buf_lengths[i]);
+				mr = used_buf_list_get(return_bufs[i]);
+				if (!mr) //registration failed, drop buffer
+					continue;
+				//else
+				DEBUG("Registration successful! rkey is %#lx", mr->rkey);
+				used_buf_list_add(mr);
+
+			} else { //mr was registered
+				DEBUG("Found mr at address %p, size %u, rkey %#lx",
+						mr->addr,
+						mr->length,
+						mr->rkey);
+				//need to re-add the buffer even if it's too small
+				used_buf_list_add(mr);
+
+				//check if the registered buffer is big enough to hold the return buffer
+				if ((uint64_t)return_bufs[i] + return_buf_lengths[i] >
+						(uint64_t)mr->addr + mr->length) {
+					DEBUG("Buffer is too small, skipping");
+					continue; //if it's too small, discard it
+				}
+			}
+		}
+
+		/*
+		 * At this point, we should have an mr, and we should know the buffer
+		 * represented by the mr is big enough for our return buffer.
+		 */
+		assert(mr);
+		assert ((uint64_t)return_bufs[i] + return_buf_lengths[i] <=
+				(uint64_t)mr->addr + mr->length);
+
+		return_bufs_msg[i].addr =
+				return_bufs[i] ?
+						(uint64_t)return_bufs[i] :
+						(uint64_t)mr->addr;
+		return_bufs_msg[i].length = return_buf_lengths[i];
+		return_bufs_msg[i].rkey = mr->rkey;
 	}
-#else
+
 	if (!context.remotes[dest])
 		resolve(src, dest);
 	assert(context.remotes[dest]);
-#endif
+
 	struct ibv_send_wr wr;
 	wr.next = NULL;
 	wr.opcode = IBV_WR_SEND;
@@ -265,11 +319,7 @@ ripc_send_short(
 	wr.wr.ud.ah = context.remotes[dest]->ah;
 	wr.wr.ud.remote_qpn = context.remotes[dest]->qp_num;
 	pthread_mutex_unlock(&remotes_mutex);
-//#ifdef HAVE_DEBUG
 	wr.send_flags = IBV_SEND_SIGNALED;
-//#else
-//	wr.send_flags = IBV_SEND_INLINE;
-//#endif
 
 	DEBUG("Sending message containing %u items to lid %u, qpn %u using qkey %d",
 			wr.num_sge,
@@ -407,8 +457,13 @@ ripc_send_long(
 		 */
 		retry:
 		return_mr = return_buf_list_get(dest, length[i]);
-		if (! return_mr) //no return buffer available
+		if (! return_mr) {//no return buffer available
+			DEBUG("Did not find a return buffer for item %u (checked: dest %u, length %u)",
+					i,
+					dest,
+					length[i]);
 			continue;
+		}
 		DEBUG("Found suitable return buffer: Remote address %p, size %u, rkey %#lx",
 				return_mr->addr,
 				return_mr->length,
@@ -684,7 +739,7 @@ ripc_receive(
 			//message has been pushed to a return buffer
 			DEBUG("Sender used return buffer at address %p",
 					long_msg[i].addr);
-			(*long_items)[i] = long_msg[i].addr;
+			(*long_items)[i] = (void *)long_msg[i].addr;
 			continue;
 		}
 
@@ -768,6 +823,8 @@ ripc_receive(
 			mr->rkey = return_bufs[i].rkey;
 
 			return_buf_list_add(hdr->from, mr);
+
+			DEBUG("Saved return buffer for destination %u", hdr->from);
 		}
 	}
 

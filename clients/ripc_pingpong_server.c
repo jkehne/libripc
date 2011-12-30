@@ -14,8 +14,21 @@ int main(void) {
 	for (i = 0; i < WORDS_PER_PACKET; ++i)
 		length[i] = PACKET_SIZE;
 
+	void *return_buf_array[SERVER_RETURN_BUFFERS];
+	size_t return_buf_length_array[SERVER_RETURN_BUFFERS];
+
 	int count = 0;
 	uint16_t from, num_short, num_long;
+
+	return_buf_array[0] = ripc_buf_alloc(PACKET_SIZE * SERVER_RETURN_BUFFERS);
+	if (return_buf_array[0]) {
+		memset(return_buf_array[0], 0, PACKET_SIZE * SERVER_RETURN_BUFFERS);
+		return_buf_length_array[0] = PACKET_SIZE;
+		for (i = 1; i < SERVER_RETURN_BUFFERS; ++i) {
+			return_buf_length_array[i] = PACKET_SIZE;
+			return_buf_array[i] = return_buf_array[0] + i * PACKET_SIZE;
+		}
+	}
 
 	printf("Starting loop\n");
 	while(true) {
@@ -37,7 +50,10 @@ int main(void) {
 				from,
 				short_items,
 				length,
-				num_short);
+				num_short,
+				return_buf_array,
+				return_buf_length_array,
+				SERVER_RETURN_BUFFERS);
 
 		/*
 		 *  return receive buffer to pool. Note that we only have to free one

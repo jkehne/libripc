@@ -21,9 +21,9 @@ int main(void) {
 
 	//for sending
 	void *msg_array[WORDS_PER_PACKET];
-	void *return_buf_array[NUM_RETURN_BUFFERS];
+	void *return_buf_array[CLIENT_RETURN_BUFFERS];
 	size_t length_array[WORDS_PER_PACKET];
-	size_t return_buf_length_array[NUM_RETURN_BUFFERS];
+	size_t return_buf_length_array[CLIENT_RETURN_BUFFERS];
 
 	//for receiving
 	void **short_items = NULL, **long_items = NULL;
@@ -39,11 +39,13 @@ int main(void) {
 		msg_array[i] = msg_array[0] + i * PACKET_SIZE;
 	}
 
-	return_buf_array[0] = ripc_buf_alloc(PACKET_SIZE * NUM_RETURN_BUFFERS);
+	strcpy(msg_array[0], "Hello long world!");
+
+	return_buf_array[0] = ripc_buf_alloc(PACKET_SIZE * CLIENT_RETURN_BUFFERS);
 	if (return_buf_array[0]) {
-		memset(return_buf_array[0], 0, PACKET_SIZE * NUM_RETURN_BUFFERS);
+		memset(return_buf_array[0], 0, PACKET_SIZE * CLIENT_RETURN_BUFFERS);
 		return_buf_length_array[0] = PACKET_SIZE;
-		for (i = 1; i < NUM_RETURN_BUFFERS; ++i) {
+		for (i = 1; i < CLIENT_RETURN_BUFFERS; ++i) {
 			return_buf_length_array[i] = PACKET_SIZE;
 			return_buf_array[i] = return_buf_array[0] + i * PACKET_SIZE;
 		}
@@ -60,7 +62,7 @@ int main(void) {
 				WORDS_PER_PACKET,
 				return_buf_array,
 				return_buf_length_array,
-				NUM_RETURN_BUFFERS))
+				CLIENT_RETURN_BUFFERS))
 			continue;
 
 		for (j = 0; j < WORDS_PER_PACKET; ++j)
@@ -75,7 +77,7 @@ int main(void) {
 				&num_long);
 
 		//printf("Received item\n");
-		//printf("Message reads: %u\n", *(int *)short_items[0]);
+		DEBUG("Message reads: %s\n", (char *)long_items[0]);
 		recvd++;
 		free(long_items);
 		//sleep(1);

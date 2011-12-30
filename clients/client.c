@@ -20,7 +20,7 @@ int main(void) {
 		//msg_array[1] = (void *)msg;
 		strcpy((char *)msg_array[1],msg);
 		length_array[1] = strlen(msg);
-		ripc_send_short(1, 4, msg_array, length_array, 2);
+		ripc_send_short(1, 4, msg_array, length_array, 2, NULL, NULL, 0);
 		sleep(1);
 	}
 	return EXIT_SUCCESS;
