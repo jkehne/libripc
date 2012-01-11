@@ -28,6 +28,7 @@ int main(void) {
 
 	//for receiving
 	void **short_items = NULL, **long_items = NULL;
+	uint32_t *short_sizes, *long_sizes;
 	uint16_t from;
 
 	gettimeofday(&before, NULL);
@@ -35,6 +36,7 @@ int main(void) {
 	for (i = 0; i < WORDS_PER_PACKET; ++i) {
 		msg_array[i] = ripc_buf_alloc(PACKET_SIZE);
 		memset(msg_array[i], 0, PACKET_SIZE);
+		//strcpy((char *)msg_array[i], "Hello short world!");
 		length_array[i] = PACKET_SIZE;
 	}
 
@@ -69,8 +71,10 @@ int main(void) {
 				my_service_id,
 				&from,
 				&short_items,
+				&short_sizes,
 				&num_short,
 				&long_items,
+				&long_sizes,
 				&num_long);
 
 		//printf("Received item\n");

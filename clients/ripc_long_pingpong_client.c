@@ -28,6 +28,7 @@ int main(void) {
 	//for receiving
 	void **short_items = NULL, **long_items = NULL;
 	uint16_t from, num_short, num_long;
+	uint32_t *short_sizes, *long_sizes;
 
 	gettimeofday(&before, NULL);
 
@@ -72,8 +73,10 @@ int main(void) {
 				my_service_id,
 				&from,
 				&short_items,
+				&short_sizes,
 				&num_short,
 				&long_items,
+				&long_sizes,
 				&num_long);
 
 		//printf("Received item\n");

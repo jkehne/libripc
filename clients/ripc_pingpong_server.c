@@ -19,6 +19,7 @@ int main(void) {
 
 	int count = 0;
 	uint16_t from, num_short, num_long;
+	uint32_t *short_sizes, *long_sizes;
 
 	return_buf_array[0] = ripc_buf_alloc(PACKET_SIZE * SERVER_RETURN_BUFFERS);
 	if (return_buf_array[0]) {
@@ -38,8 +39,10 @@ int main(void) {
 				SERVER_SERVICE_ID,
 				&from,
 				&short_items,
+				&short_sizes,
 				&num_short,
 				&long_items,
+				&long_sizes,
 				&num_long);
 
 		DEBUG("Received message: %d\n", *(int *)short_items[0]);

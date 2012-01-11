@@ -13,7 +13,7 @@ struct library_context context;
 
 pthread_mutex_t services_mutex, remotes_mutex;
 
-bool init(void) {
+uint8_t init(void) {
 	if (context.device_context != NULL)
 		return true;
 
@@ -169,14 +169,25 @@ ripc_send_short(
 
 	for (i = 0; i < num_items; ++i)
 		total_length += length[i];
+
+	DEBUG("Total length: %u", total_length);
+#if 0
 	if (total_length > (
 			RECV_BUF_SIZE
 			- sizeof(struct msg_header)
 			- sizeof(struct short_header) * num_items
 			- sizeof(struct long_desc) * num_return_bufs
-			))
+			)) {
+		ERROR("Packet too long! Size: %u, maximum: %u",
+				total_length,
+				RECV_BUF_SIZE
+				- sizeof(struct msg_header)
+				- sizeof(struct short_header) * num_items
+				- sizeof(struct long_desc) * num_return_bufs
+				);
 		return -1; //probably won't fit at receiving end either
-
+	}
+#endif
 
 	//build packet header
 	struct ibv_mr *header_mr =
@@ -239,7 +250,7 @@ ripc_send_short(
 		}
 
 		assert(mr);
-		assert(mr->length >= length[i]); //the hardware won't allow it anyway
+		//assert(mr->length >= length[i]); //the hardware won't allow it anyway
 
 		sge[i + 1].addr = (uint64_t)tmp_buf;
 		sge[i + 1].length = length[i];
@@ -623,8 +634,10 @@ ripc_receive(
 		uint16_t service_id,
 		uint16_t *from_service_id,
 		void ***short_items,
+		uint32_t **short_item_sizes,
 		uint16_t *num_short_items,
 		void ***long_items,
+		uint32_t **long_item_sizes,
 		uint16_t *num_long_items) {
 
 	struct ibv_wc wc;
@@ -715,18 +728,27 @@ ripc_receive(
 	if (hdr->short_words) {
 		*short_items = malloc(sizeof(void *) * hdr->short_words);
 		assert(*short_items);
-	} else
+		*short_item_sizes = malloc(sizeof(uint32_t *) * hdr->short_words);
+		assert(*short_item_sizes);
+	} else {
 		*short_items = NULL;
+		*short_item_sizes = NULL;
+	}
 
 	for (i = 0; i < hdr->short_words; ++i) {
 		(*short_items)[i] = (void *)(wr->sg_list->addr + msg[i].offset);
+		(*short_item_sizes)[i] = msg[i].size;
 	}
 
 	if (hdr->long_words) {
 		*long_items = malloc(sizeof(void *) * hdr->long_words);
 		assert(*long_items);
-	} else
+		*long_item_sizes = malloc(sizeof(uint32_t *) * hdr->long_words);
+		assert(*long_item_sizes);
+	} else {
 		*long_items = NULL;
+		*long_item_sizes = NULL;
+	}
 
 	for (i = 0; i < hdr->long_words; ++i) {
 		DEBUG("Received long item: addr %#lx, length %u, rkey %#lx",
@@ -740,6 +762,7 @@ ripc_receive(
 			DEBUG("Sender used return buffer at address %p",
 					long_msg[i].addr);
 			(*long_items)[i] = (void *)long_msg[i].addr;
+			(*long_item_sizes)[i] = long_msg[i].length;
 			continue;
 		}
 
@@ -798,6 +821,7 @@ ripc_receive(
 		pthread_mutex_unlock(&remotes_mutex);
 
 		(*long_items)[i] = rdma_mr->addr;
+		(*long_item_sizes)[i] = long_msg[i].length;
 	}
 
 	struct ibv_mr *mr;

@@ -11,6 +11,8 @@
 extern "C" {
 #endif
 
+uint8_t init(void);
+
 uint16_t ripc_register_random_service_id(void);
 uint8_t ripc_register_service_id(int);
 
@@ -45,8 +47,10 @@ uint8_t ripc_receive(
 		uint16_t service_id,
 		uint16_t *from_service_id,
 		void ***short_items,
+		uint32_t **short_item_sizes,
 		uint16_t *num_short_items,
 		void ***long_items,
+		uint32_t **long_item_sizes,
 		uint16_t *num_long_items
 		);
 

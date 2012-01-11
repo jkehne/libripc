@@ -18,6 +18,7 @@ int main(void) {
 		length[i] = PACKET_SIZE;
 	int count = 0;
 	uint16_t from, num_short, num_long;
+	uint32_t *short_sizes, *long_sizes;
 
 	void *recv_buffers[WORDS_PER_PACKET];
 	recv_buffers[0] = ripc_buf_alloc(PACKET_SIZE * WORDS_PER_PACKET);
@@ -47,8 +48,10 @@ int main(void) {
 				SERVER_SERVICE_ID,
 				&from,
 				&short_items,
+				&short_sizes,
 				&num_short,
 				&long_items,
+				&long_sizes,
 				&num_long);
 
 		DEBUG("Received message: %d\n", *(int *)long_items[0]);

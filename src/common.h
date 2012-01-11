@@ -60,9 +60,9 @@ struct service_id {
 
 struct remote_context {
 	uint32_t qp_num;
+	struct ibv_ah *ah;
 	uint32_t resolver_qp;
 	enum conn_state state;
-	struct ibv_ah *ah;
 	struct ibv_qp *rdma_qp;
 	struct ibv_cq *rdma_send_cq;
 	struct ibv_cq *rdma_recv_cq;
