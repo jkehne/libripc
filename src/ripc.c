@@ -142,10 +142,6 @@ uint8_t ripc_register_service_id(int service_id) {
 			service_id
 			);
 
-#ifndef HAVE_DEBUG
-	printf("qp_num is %u\n", service_context->qp->qp_num);
-#endif
-
 	pthread_mutex_unlock(&services_mutex);
 	return true;
 }
