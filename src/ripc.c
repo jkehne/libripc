@@ -445,7 +445,7 @@ ripc_send_long(
 		}
 
 		assert(mr);
-		assert(mr->length >= length[i]); //the hardware won't allow it anyway
+		//assert(mr->length >= length[i]); //the hardware won't allow it anyway
 
 		msg[i].addr = (uint64_t)mr->addr;
 		msg[i].length = length[i];
@@ -457,6 +457,7 @@ ripc_send_long(
 				length[i],
 				mr->rkey);
 
+		DEBUG("Message reads: %s", (char *)mr->addr);
 		/*
 		 * Now, check if we have a return buffer available. If so, push the
 		 * contents of the long word to the other side; if not, just send the
@@ -816,7 +817,9 @@ ripc_receive(
 
 		pthread_mutex_unlock(&remotes_mutex);
 
-		(*long_items)[i] = rdma_mr->addr;
+		DEBUG("Message reads: %s", (char *)rdma_addr);
+
+		(*long_items)[i] = rdma_addr;
 		(*long_item_sizes)[i] = long_msg[i].length;
 	}
 

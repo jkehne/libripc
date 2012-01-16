@@ -152,7 +152,11 @@ void *recv_window_list_get(size_t size) {
 	struct mem_buf_list *prev = NULL;
 
 	while(ptr) {
-		if (ptr->size >= size) {
+		size_t ptr_size = ptr->size;
+		DEBUG("Checking window list entry: entry size: %u, requested size: %u",
+				ptr_size,
+				size);
+		if (ptr_size >= size) {
 			if (prev)
 				prev->next = ptr->next;
 			else //first element in list
@@ -231,6 +235,7 @@ struct ibv_mr *ripc_alloc_recv_buf(size_t size) {
 	if (mr) {
 		DEBUG("Got hit in free list: Buffer at %p, size %u", mr->addr, mr->length);
 		used_buf_list_add(mr);
+		memset(mr->addr, 0, mr->length);
 		return mr;
 	}
 
