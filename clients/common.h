@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define NUM_ROUNDS 10
+#define NUM_ROUNDS 100
 #define PACKET_SIZE RECV_BUF_SIZE - 100
 #define WORDS_PER_PACKET 1
 //#define CLIENT_SERVICE_ID 4

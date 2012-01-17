@@ -1,4 +1,4 @@
-bin_PROGRAMS=client server ripc_pingpong_server ripc_pingpong_client ripc_long_pingpong_server ripc_long_pingpong_client socket_pingpong_server socket_pingpong_client
+bin_PROGRAMS=client server ripc_pingpong_server ripc_pingpong_client ripc_long_pingpong_server ripc_long_pingpong_client socket_pingpong_server socket_pingpong_client jetty_bench
 
 include_HEADERS=../src/ripc.h config.h common.h
 
@@ -33,3 +33,7 @@ socket_pingpong_server_LDFLAGS=-static
 socket_pingpong_client_SOURCES=socket_pingpong_client.c
 socket_pingpong_client_LDADD=../src/libripc.la
 socket_pingpong_client_LDFLAGS=-static
+
+jetty_bench_SOURCES=jetty-bench.c
+jetty_bench_LDADD=../src/libripc.la
+jetty_bench_LDFLAGS=-static

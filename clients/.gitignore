@@ -12,3 +12,4 @@
 /socket_pingpong_server
 /ripc_long_pingpong_server
 /ripc_long_pingpong_client
+/jetty_bench

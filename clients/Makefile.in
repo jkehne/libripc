@@ -41,7 +41,7 @@ bin_PROGRAMS = client$(EXEEXT) server$(EXEEXT) \
 	ripc_long_pingpong_server$(EXEEXT) \
 	ripc_long_pingpong_client$(EXEEXT) \
 	socket_pingpong_server$(EXEEXT) \
-	socket_pingpong_client$(EXEEXT)
+	socket_pingpong_client$(EXEEXT) jetty_bench$(EXEEXT)
 subdir = clients
 DIST_COMMON = $(include_HEADERS) $(srcdir)/Makefile.am \
 	$(srcdir)/Makefile.in $(srcdir)/config.h.in
@@ -64,6 +64,12 @@ client_DEPENDENCIES = ../src/libripc.la
 client_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(client_LDFLAGS) \
 	$(LDFLAGS) -o $@
+am_jetty_bench_OBJECTS = jetty-bench.$(OBJEXT)
+jetty_bench_OBJECTS = $(am_jetty_bench_OBJECTS)
+jetty_bench_DEPENDENCIES = ../src/libripc.la
+jetty_bench_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
+	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
+	$(jetty_bench_LDFLAGS) $(LDFLAGS) -o $@
 am_ripc_long_pingpong_client_OBJECTS =  \
 	ripc_long_pingpong_client.$(OBJEXT)
 ripc_long_pingpong_client_OBJECTS =  \
@@ -125,13 +131,15 @@ CCLD = $(CC)
 LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
 	$(LDFLAGS) -o $@
-SOURCES = $(client_SOURCES) $(ripc_long_pingpong_client_SOURCES) \
+SOURCES = $(client_SOURCES) $(jetty_bench_SOURCES) \
+	$(ripc_long_pingpong_client_SOURCES) \
 	$(ripc_long_pingpong_server_SOURCES) \
 	$(ripc_pingpong_client_SOURCES) \
 	$(ripc_pingpong_server_SOURCES) $(server_SOURCES) \
 	$(socket_pingpong_client_SOURCES) \
 	$(socket_pingpong_server_SOURCES)
-DIST_SOURCES = $(client_SOURCES) $(ripc_long_pingpong_client_SOURCES) \
+DIST_SOURCES = $(client_SOURCES) $(jetty_bench_SOURCES) \
+	$(ripc_long_pingpong_client_SOURCES) \
 	$(ripc_long_pingpong_server_SOURCES) \
 	$(ripc_pingpong_client_SOURCES) \
 	$(ripc_pingpong_server_SOURCES) $(server_SOURCES) \
@@ -304,6 +312,9 @@ socket_pingpong_server_LDFLAGS = -static
 socket_pingpong_client_SOURCES = socket_pingpong_client.c
 socket_pingpong_client_LDADD = ../src/libripc.la
 socket_pingpong_client_LDFLAGS = -static
+jetty_bench_SOURCES = jetty-bench.c
+jetty_bench_LDADD = ../src/libripc.la
+jetty_bench_LDFLAGS = -static
 all: config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-am
 
@@ -402,6 +413,9 @@ clean-binPROGRAMS:
 client$(EXEEXT): $(client_OBJECTS) $(client_DEPENDENCIES) 
 	@rm -f client$(EXEEXT)
 	$(client_LINK) $(client_OBJECTS) $(client_LDADD) $(LIBS)
+jetty_bench$(EXEEXT): $(jetty_bench_OBJECTS) $(jetty_bench_DEPENDENCIES) 
+	@rm -f jetty_bench$(EXEEXT)
+	$(jetty_bench_LINK) $(jetty_bench_OBJECTS) $(jetty_bench_LDADD) $(LIBS)
 ripc_long_pingpong_client$(EXEEXT): $(ripc_long_pingpong_client_OBJECTS) $(ripc_long_pingpong_client_DEPENDENCIES) 
 	@rm -f ripc_long_pingpong_client$(EXEEXT)
 	$(ripc_long_pingpong_client_LINK) $(ripc_long_pingpong_client_OBJECTS) $(ripc_long_pingpong_client_LDADD) $(LIBS)
@@ -431,6 +445,7 @@ distclean-compile:
 	-rm -f *.tab.c
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/client.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/jetty-bench.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ripc_long_pingpong_client.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ripc_long_pingpong_server.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ripc_pingpong_client.Po@am__quote@
