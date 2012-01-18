@@ -305,6 +305,8 @@ void create_rdma_connection(uint16_t src, uint16_t dest) {
 
        while ( ! ibv_poll_cq(rdma_recv_cq, 1, &wc)) { /* wait for response */ }
 
+       post_new_recv_buf(rdma_qp);
+
        pthread_mutex_unlock(&rdma_connect_mutex);
 
        struct ibv_recv_wr *response_wr =
