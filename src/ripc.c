@@ -493,9 +493,17 @@ ripc_send_long(
 		rdma_wr.wr.rdma.rkey = return_mr->rkey;
 		struct ibv_send_wr *rdma_bad_wr;
 
+		struct ibv_qp *rdma_qp;
+		struct ibv_cq *rdma_cq, *tmp_cq;
+		struct ibv_comp_channel *rdma_cchannel;
 		pthread_mutex_lock(&remotes_mutex);
+		rdma_qp = context.remotes[dest]->rdma_qp;
+		rdma_cq = context.remotes[dest]->rdma_send_cq;
+		rdma_cchannel = context.remotes[dest]->rdma_cchannel;
+		pthread_mutex_unlock(&remotes_mutex);
+
 		if (ibv_post_send(
-				context.remotes[dest]->rdma_qp,
+				rdma_qp,
 				&rdma_wr,
 				&rdma_bad_wr)) {
 			ERROR("Failed to post write to return buffer for message item %u", i);
@@ -504,7 +512,19 @@ ripc_send_long(
 		}
 
 		struct ibv_wc rdma_wc;
-		while (!(ibv_poll_cq(context.remotes[dest]->rdma_send_cq, 1, &rdma_wc))); //polling is probably faster here
+		void *ctx; //unused
+
+		do {
+			ibv_get_cq_event(rdma_cchannel,
+			&tmp_cq,
+			&ctx);
+
+			assert(tmp_cq == rdma_cq);
+
+			ibv_ack_cq_events(rdma_cq, 1);
+			ibv_req_notify_cq(rdma_cq, 0);
+
+		} while (!(ibv_poll_cq(rdma_cq, 1, &rdma_wc)));
 
 		DEBUG("received completion message!");
 		if (rdma_wc.status) {
@@ -518,7 +538,6 @@ ripc_send_long(
 			msg[i].addr = (uint64_t)return_mr->addr;
 		}
 
-		pthread_mutex_unlock(&remotes_mutex);
 		free(return_mr);
 	}
 
@@ -794,9 +813,17 @@ ripc_receive(
 		rdma_wr.wr.rdma.rkey = long_msg[i].rkey;
 		struct ibv_send_wr *rdma_bad_wr;
 
+		struct ibv_qp *rdma_qp;
+		struct ibv_cq *rdma_cq, *tmp_cq;
+		struct ibv_comp_channel *rdma_cchannel;
 		pthread_mutex_lock(&remotes_mutex);
+		rdma_qp = context.remotes[hdr->from]->rdma_qp;
+		rdma_cq = context.remotes[hdr->from]->rdma_send_cq;
+		rdma_cchannel = context.remotes[hdr->from]->rdma_cchannel;
+		pthread_mutex_unlock(&remotes_mutex);
+
 		if (ibv_post_send(
-				context.remotes[hdr->from]->rdma_qp,
+				rdma_qp,
 				&rdma_wr,
 				&rdma_bad_wr)) {
 			ERROR("Failed to post rdma read for message item %u", i);
@@ -805,8 +832,19 @@ ripc_receive(
 		}
 
 		struct ibv_wc rdma_wc;
-		while (!(ibv_poll_cq(context.remotes[hdr->from]->rdma_send_cq, 1, &rdma_wc))); //polling is probably faster here
-		//ibv_ack_cq_events(context.services[src]->recv_cq, 1);
+
+		do {
+			ibv_get_cq_event(rdma_cchannel,
+			&tmp_cq,
+			&ctx);
+
+			assert(tmp_cq == rdma_cq);
+
+			ibv_ack_cq_events(rdma_cq, 1);
+			ibv_req_notify_cq(rdma_cq, 0);
+
+		} while (!(ibv_poll_cq(rdma_cq, 1, &rdma_wc)));
+
 		DEBUG("received completion message!");
 		if (rdma_wc.status) {
 			ERROR("Send result: %d", rdma_wc.status);
@@ -814,8 +852,6 @@ ripc_receive(
 		} else {
 			DEBUG("Result: %d", rdma_wc.status);
 		}
-
-		pthread_mutex_unlock(&remotes_mutex);
 
 		DEBUG("Message reads: %s", (char *)rdma_addr);
 

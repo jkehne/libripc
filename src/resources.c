@@ -188,6 +188,15 @@ void create_rdma_connection(uint16_t src, uint16_t dest) {
         */
        remote->state = RIPC_RDMA_CONNECTING;
 
+       remote->rdma_cchannel = ibv_create_comp_channel(context.device_context);
+       if (remote->rdma_cchannel == NULL) {
+               ERROR("Failed to allocate rdma completion channel!");
+               goto error;
+               return;
+       } else {
+               DEBUG("Allocated rdma completion channel: %u", remote->rdma_cchannel->fd);
+       }
+
        remote->rdma_recv_cq = ibv_create_cq(
                        context.device_context,
                        100,
@@ -206,7 +215,7 @@ void create_rdma_connection(uint16_t src, uint16_t dest) {
                        context.device_context,
                        100,
                        NULL,
-                       NULL,
+                       remote->rdma_cchannel,
                        0);
        if (remote->rdma_send_cq == NULL) {
                ERROR("Failed to allocate send completion queue!");
@@ -215,6 +224,8 @@ void create_rdma_connection(uint16_t src, uint16_t dest) {
        } else {
                DEBUG("Allocated send completion queue: %u", remote->rdma_send_cq->handle);
        }
+
+       ibv_req_notify_cq(remote->rdma_send_cq, 0);
 
        //now for the qp. Remember that we need an RC qp here!
        struct ibv_qp_init_attr init_attr = {

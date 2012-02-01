@@ -66,6 +66,7 @@ struct remote_context {
 	struct ibv_qp *rdma_qp;
 	struct ibv_cq *rdma_send_cq;
 	struct ibv_cq *rdma_recv_cq;
+	struct ibv_comp_channel *rdma_cchannel;
 	struct mem_buf_list *return_bufs;
 };
 

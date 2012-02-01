@@ -94,7 +94,20 @@ struct ibv_mr *free_buf_list_get(size_t size) {
 	struct mem_buf_list *prev = NULL;
 
 	while(ptr) {
-		if (ptr->mr->length >= size) {
+		/*
+		 * Accept the buffer if
+		 * 1) it is bigger than the requested size (obviously)
+		 * 2) it is smaller than twice the requested size.
+		 * If we would leave out the second requirement, the library
+		 * sometimes uses very large buffers for small payloads, and is
+		 * then forced to allocate a new, large buffer soon after. The
+		 * idea is to instead find a buffer of *approximately* the
+		 * requested size.
+		 * In practise, this doesn't change transfer time much, but it
+		 * significantly reduces jitter!
+		 */
+		if ((ptr->mr->length >= size) &&
+				(ptr->mr->length <= size * 2)) {
 			if (prev)
 				prev->next = ptr->next;
 			else //first element in list

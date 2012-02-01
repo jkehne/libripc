@@ -56,6 +56,15 @@ void handle_rdma_connect(struct rdma_connect_msg *msg) {
 
 	remote->state = RIPC_RDMA_CONNECTING;
 
+	remote->rdma_cchannel = ibv_create_comp_channel(context.device_context);
+    if (remote->rdma_cchannel == NULL) {
+            ERROR("Failed to allocate rdma completion channel!");
+            goto error;
+            return;
+    } else {
+            DEBUG("Allocated rdma completion channel: %u", remote->rdma_cchannel->fd);
+    }
+
     remote->rdma_recv_cq = ibv_create_cq(
                     context.device_context,
                     100,
@@ -74,7 +83,7 @@ void handle_rdma_connect(struct rdma_connect_msg *msg) {
                     context.device_context,
                     100,
                     NULL,
-                    NULL,
+                    remote->rdma_cchannel,
                     0);
     if (remote->rdma_send_cq == NULL) {
             ERROR("Failed to allocate send completion queue!");
@@ -83,6 +92,8 @@ void handle_rdma_connect(struct rdma_connect_msg *msg) {
     } else {
             DEBUG("Allocated send completion queue: %u", remote->rdma_send_cq->handle);
     }
+
+    ibv_req_notify_cq(remote->rdma_send_cq, 0);
 
     //now for the qp. Remember that we need an RC qp here!
     struct ibv_qp_init_attr init_attr = {
@@ -235,11 +246,13 @@ void handle_rdma_connect(struct rdma_connect_msg *msg) {
 
     error:
     if (remote->rdma_qp)
-            ibv_destroy_qp(remote->rdma_qp);
+    	ibv_destroy_qp(remote->rdma_qp);
     if (remote->rdma_recv_cq)
-            ibv_destroy_cq(remote->rdma_recv_cq);
+    	ibv_destroy_cq(remote->rdma_recv_cq);
     if (remote->rdma_send_cq)
-            ibv_destroy_cq(remote->rdma_recv_cq);
+    	ibv_destroy_cq(remote->rdma_recv_cq);
+    if (remote->rdma_cchannel)
+    	ibv_destroy_comp_channel(remote->rdma_cchannel);
     remote->state = RIPC_RDMA_DISCONNECTED;
     pthread_mutex_unlock(&remotes_mutex);
 }
