@@ -33,6 +33,16 @@ case $HOST in
                 echo "Error: Libibumad not found!"
                 exit -1
         ])
+
+        ac_fn_c_check_header_mongrel "$LINENO" "infiniband/umad.h" "ac_cv_header_infiniband_umad_h" "$ac_includes_default"
+        if test "x$ac_cv_header_infiniband_umad_h" = xyes; then :
+        else
+               echo "Error: Libumad development headers not found!"
+               exit -1
+        fi
+
+
+
 	;;
   powerpc*)
 	;;
