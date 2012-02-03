@@ -34,15 +34,15 @@ case $HOST in
                 exit -1
         ])
 
-        ac_fn_c_check_header_mongrel "$LINENO" "infiniband/umad.h" "ac_cv_header_infiniband_umad_h" "$ac_includes_default"
-        if test "x$ac_cv_header_infiniband_umad_h" = xyes; then :
-        else
-               echo "Error: Libumad development headers not found!"
-               exit -1
-        fi
+	AC_CHECK_HEADER([infiniband/verbs.h],[],[
+		echo "Error: Libibverbs development headers not found!"
+		exit -1
+	])
 
-
-
+	AC_CHECK_HEADER([infiniband/umad.h],[],[
+		echo "Error: Libumad development headers not found!"
+		exit -1
+	-])
 	;;
   powerpc*)
 	;;
