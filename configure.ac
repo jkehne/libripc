@@ -25,14 +25,15 @@ fi
 case $HOST in
   ia32|x86*|i386*|i486*|i586*|i686*|amd64*)
         AC_CHECK_LIB([ibverbs],[ibv_get_device_list],[],[
-	        echo "Error: Libibverbs not found!"
-	        exit -1
+                echo "Error: Libibverbs not found!"
+                exit -1
         ])
 
         AC_CHECK_LIB([ibumad],[umad_init],[],[
-	        echo "Error: Libibumad not found!"
-	        exit -1
+                echo "Error: Libibumad not found!"
+                exit -1
         ])
+	;;
   powerpc*)
 	;;
   *)
@@ -40,6 +41,7 @@ case $HOST in
 	Please specify hardware architecture using --host=ARCH.])
 	;;
 esac
+
 
 
 AC_CHECK_LIB([pthread],[pthread_create],[],[

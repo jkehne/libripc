@@ -12035,8 +12035,8 @@ _ACEOF
 
 else
 
-	        echo "Error: Libibverbs not found!"
-	        exit -1
+                echo "Error: Libibverbs not found!"
+                exit -1
 
 fi
 
@@ -12086,11 +12086,12 @@ _ACEOF
 
 else
 
-	        echo "Error: Libibumad not found!"
-	        exit -1
+                echo "Error: Libibumad not found!"
+                exit -1
 
 fi
 
+	;;
   powerpc*)
 	;;
   *)
@@ -12098,6 +12099,7 @@ fi
 	Please specify hardware architecture using --host=ARCH." "$LINENO" 5
 	;;
 esac
+
 
 
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for pthread_create in -lpthread" >&5
