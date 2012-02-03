@@ -12091,8 +12091,6 @@ else
 
 fi
 
-	echo "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
-	;;
   powerpc*)
 	;;
   *)
