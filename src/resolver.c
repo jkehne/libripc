@@ -11,6 +11,7 @@ struct ibv_qp *mcast_qp, *unicast_qp;
 struct ibv_comp_channel *mcast_cchannel;
 struct ibv_ah *mcast_ah;
 pthread_t responder_thread;
+pthread_mutex_t resolver_mutex;
 
 /*
  * TODO:
@@ -388,6 +389,8 @@ void *start_responder(void *arg) {
 	resp_wr.wr_id = 0xdeadbeef;
 	resp_wr.wr.ud.remote_qkey = 0xffff;
 
+	pthread_mutex_unlock(&resolver_mutex); //was locked in dispatch_responder
+
 	while(true) {
 		do {
 			ibv_get_cq_event(mcast_cchannel, &recvd_on, &cq_context);
@@ -552,6 +555,7 @@ void *start_responder(void *arg) {
 
 void dispatch_responder(void) {
 	//just trampoline to the real init function in new thread
+	pthread_mutex_lock(&resolver_mutex); //unlocked in start_responder
 	pthread_create(&responder_thread, NULL, &start_responder, NULL);
 }
 
@@ -602,9 +606,23 @@ void resolve(uint16_t src, uint16_t dest) {
 
 	DEBUG("Posting multicast send request");
 
+	/*
+	 * Currently, the resolver assumes that the reply it receives belongs
+	 * to the last request it sent. If multiple requests are in flight
+	 * simultansously and their responses are not received in the same order
+	 * as their requests, bad things will happen. We therefore allow only
+	 * one request at a time in flight for now.
+	 * TODO: Come up with a better solution!
+	 */
+	pthread_mutex_lock(&resolver_mutex);
+	DEBUG("About to actually post multicast send request");
 	ibv_post_send(mcast_qp, &wr, &bad_wr);
 
+	DEBUG("Posted multicast send request");
+
 	while ( ! ibv_poll_cq(mcast_send_cq, 1, &wc)) { /* wait */ }
+
+	DEBUG("Got multicast send completion");
 
 	ripc_buf_free(msg);
 
@@ -616,6 +634,7 @@ void resolve(uint16_t src, uint16_t dest) {
 	 * TODO: Implement some sort of timeout!
 	 */
 	while ( ! ibv_poll_cq(unicast_recv_cq, 1, &wc)) { /* wait */ }
+	pthread_mutex_unlock(&resolver_mutex);
 
 	post_new_recv_buf(unicast_qp);
 
@@ -623,7 +642,6 @@ void resolve(uint16_t src, uint16_t dest) {
 	msg = (struct resolver_msg *)(resp_wr->sg_list->addr + 40);
 
 	assert(msg->type == RIPC_MSG_RESOLVE_REPLY);
-	assert(msg->dest_service_id == dest);
 
 	DEBUG("Received message: from service: %u, for service: %u, from qpn: %u, from lid: %u, response to: %u",
 			msg->src_service_id,
@@ -632,6 +650,8 @@ void resolve(uint16_t src, uint16_t dest) {
 			msg->lid,
 			msg->response_qpn
 			);
+
+	assert(msg->dest_service_id == dest);
 
 	 //got the info we wanted, now feed it to the cache
 	ah_attr.dlid = msg->lid;

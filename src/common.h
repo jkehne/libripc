@@ -6,11 +6,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <pthread.h>
 #include <infiniband/verbs.h>
 #include "memory.h"
 
-#define ERROR(...) fprintf(stderr, "%s() (%s, line %u): ", __PRETTY_FUNCTION__, __FILE__, __LINE__); fprintf(stderr, __VA_ARGS__); fprintf(stderr,"\n")
-#define panic(...) fprintf(stderr, "%s() (%s, line %u): FATAL: ", __PRETTY_FUNCTION__, __FILE__, __LINE__); fprintf(stderr, __VA_ARGS__); fprintf(stderr,"\n"); exit(EXIT_FAILURE)
+#define ERROR(...) fprintf(stderr, "Thread %d: %s() (%s, line %u): ", pthread_self(), __PRETTY_FUNCTION__, __FILE__, __LINE__); fprintf(stderr, __VA_ARGS__); fprintf(stderr,"\n")
+#define panic(...) fprintf(stderr, "Thread %d: %s() (%s, line %u): FATAL: ", pthread_self(), __PRETTY_FUNCTION__, __FILE__, __LINE__); fprintf(stderr, __VA_ARGS__); fprintf(stderr,"\n"); exit(EXIT_FAILURE)
 
 #ifdef HAVE_DEBUG
 #define DEBUG(...) ERROR(__VA_ARGS__)

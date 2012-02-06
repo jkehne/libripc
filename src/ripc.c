@@ -85,6 +85,7 @@ uint8_t init(void) {
 	pthread_mutex_init(&free_list_mutex, NULL);
 	pthread_mutex_init(&recv_window_mutex, NULL);
 	pthread_mutex_init(&rdma_connect_mutex, NULL);
+	pthread_mutex_init(&resolver_mutex, NULL);
 
 	alloc_queue_state( //queues for sending connection requests
 			NULL,

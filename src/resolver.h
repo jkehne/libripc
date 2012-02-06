@@ -14,6 +14,8 @@ struct resolver_msg {
 	uint32_t resolver_qpn;
 };
 
+extern pthread_mutex_t resolver_mutex;
+
 void dispatch_responder(void);
 void resolve(uint16_t src, uint16_t dest);
 
