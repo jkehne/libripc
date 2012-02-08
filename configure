@@ -734,6 +734,7 @@ enable_dependency_tracking
 with_gnu_ld
 with_sysroot
 enable_libtool_lock
+with_netarch
 enable_assert
 enable_debug
 '
@@ -1385,6 +1386,7 @@ Optional Packages:
   --with-gnu-ld           assume the C compiler uses GNU ld [default=no]
   --with-sysroot=DIR Search for dependent libraries within DIR
                         (or the compiler's sysroot if not specified).
+  --enable-netarch     Set network architecture.
 
 Some influential environment variables:
   CC          C compiler command
@@ -11980,16 +11982,57 @@ fi
 
 
 
-if test "x$host_alias" != x; then
+if test "x$target_alias" != x; then
   # We do not necessarily need crt0 and friends when cross-compiling.
   LDFLAGS="-nostdlib $LDFLAGS"
-  HOST=$host_alias
+  TARGET=$target_alias
 else
-  HOST=`(uname -m) 2>/dev/null || echo unknown`
+  TARGET=`(uname -m) 2>/dev/null || echo unknown`
 fi
 
-case $HOST in
+case $TARGET in
   ia32|x86*|i386*|i486*|i586*|i686*|amd64*)
+
+cat >>confdefs.h <<_ACEOF
+#define TARGET X86
+_ACEOF
+
+        NETARCH=infiniband
+	;;
+  powerpc*)
+
+cat >>confdefs.h <<_ACEOF
+#define TARGET POWERPC
+_ACEOF
+
+        NETARCH=bgp
+	;;
+  *)
+	as_fn_error $? "Unknown hardware architecture: $TARGET.
+	Please specify hardware architecture using --target=ARCH." "$LINENO" 5
+	;;
+esac
+
+
+
+# Check whether --with-netarch was given.
+if test "${with_netarch+set}" = set; then :
+  withval=$with_netarch;  case "$withval" in
+          infiniband) NETARCH=infiniband ;;
+          bgp) NETARCH=bgp ;;
+          *) as_fn_error $? "bad value $withval for --enable-netarch" "$LINENO" 5 ;;
+       esac
+
+
+fi
+
+
+
+case $NETARCH in
+  infiniband)
+
+$as_echo "#define ENABLE_INFINIBAND 1" >>confdefs.h
+
         { $as_echo "$as_me:${as_lineno-$LINENO}: checking for ibv_get_device_list in -libverbs" >&5
 $as_echo_n "checking for ibv_get_device_list in -libverbs... " >&6; }
 if ${ac_cv_lib_ibverbs_ibv_get_device_list+:} false; then :
@@ -12115,16 +12158,17 @@ else
 fi
 
 
-	;;
-  powerpc*)
-	;;
+        ;;
+  bgp)
+
+$as_echo "#define ENABLE_BGP 1" >>confdefs.h
+
+        ;;
   *)
-	as_fn_error $? "Unknown hardware architecture: $HOST.
-	Please specify hardware architecture using --host=ARCH." "$LINENO" 5
+	as_fn_error $? "Unknown network architecture: $NETARCH.
+	Please specify network architecture using --with-netarch=NETARCH" "$LINENO" 5
 	;;
 esac
-
-
 
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for pthread_create in -lpthread" >&5
 $as_echo_n "checking for pthread_create in -lpthread... " >&6; }

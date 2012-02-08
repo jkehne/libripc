@@ -1,5 +1,11 @@
 /* src/config.h.in.  Generated from configure.ac by autoheader.  */
 
+/* Enable BG/P network architecture */
+#undef ENABLE_BGP
+
+/* Enable InfiniBand network architecture */
+#undef ENABLE_INFINIBAND
+
 /* Define to 1 if debug output should be enabled. */
 #undef HAVE_DEBUG
 
@@ -82,6 +88,9 @@
 
 /* Define to 1 if you have the ANSI C header files. */
 #undef STDC_HEADERS
+
+/* Target architecture */
+#undef TARGET
 
 /* Version number of package */
 #undef VERSION

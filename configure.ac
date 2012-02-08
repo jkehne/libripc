@@ -14,16 +14,45 @@ AC_LANG_C
 AC_PROG_CC
 
 
-if test "x$host_alias" != x; then
+if test "x$target_alias" != x; then
   # We do not necessarily need crt0 and friends when cross-compiling.
   LDFLAGS="-nostdlib $LDFLAGS"
-  HOST=$host_alias
+  TARGET=$target_alias
 else
-  HOST=`(uname -m) 2>/dev/null || echo unknown`
+  TARGET=`(uname -m) 2>/dev/null || echo unknown`
 fi
 
-case $HOST in
+case $TARGET in
   ia32|x86*|i386*|i486*|i586*|i686*|amd64*)
+        AC_DEFINE_UNQUOTED([TARGET], [X86], [Target architecture])
+        NETARCH=infiniband
+	;;
+  powerpc*)
+        AC_DEFINE_UNQUOTED([TARGET], [POWERPC], [Target architecture])
+        NETARCH=bgp 
+	;;
+  *)
+	AC_MSG_ERROR([Unknown hardware architecture: $TARGET.
+	Please specify hardware architecture using --target=ARCH.])
+	;;
+esac
+
+
+AC_ARG_WITH(netarch,
+    [  --enable-netarch     Set network architecture.],
+    [ case "$withval" in
+          infiniband) NETARCH=infiniband ;;
+          bgp) NETARCH=bgp ;;
+          *) AC_MSG_ERROR(bad value $withval for --enable-netarch) ;; 
+       esac
+    ]
+)
+
+
+dnl InfiniBand Checks
+case $NETARCH in
+  infiniband)
+        AC_DEFINE([ENABLE_INFINIBAND], [1], [Enable InfiniBand network architecture])
         AC_CHECK_LIB([ibverbs],[ibv_get_device_list],[],[
                 echo "Error: Libibverbs not found!"
                 exit -1
@@ -43,16 +72,15 @@ case $HOST in
 		echo "Error: Libumad development headers not found!"
 		exit -1
 	-])
-	;;
-  powerpc*)
-	;;
+        ;;
+  bgp)
+        AC_DEFINE([ENABLE_BGP], [1], [Enable BG/P network architecture])
+        ;;      
   *)
-	AC_MSG_ERROR([Unknown hardware architecture: $HOST.
-	Please specify hardware architecture using --host=ARCH.])
+	AC_MSG_ERROR([Unknown network architecture: $NETARCH.
+	Please specify network architecture using --with-netarch=NETARCH])
 	;;
 esac
-
-
 
 AC_CHECK_LIB([pthread],[pthread_create],[],[
 	echo "Error: Libpthread not found!"
