@@ -58,6 +58,9 @@
 /* Define to 1 if the system has the type `_Bool'. */
 #undef HAVE__BOOL
 
+/* Host architecture */
+#undef HOST
+
 /* Define to the sub-directory in which libtool stores uninstalled libraries.
    */
 #undef LT_OBJDIR
@@ -88,9 +91,6 @@
 
 /* Define to 1 if you have the ANSI C header files. */
 #undef STDC_HEADERS
-
-/* Target architecture */
-#undef TARGET
 
 /* Version number of package */
 #undef VERSION

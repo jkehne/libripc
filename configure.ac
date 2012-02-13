@@ -14,26 +14,26 @@ AC_LANG_C
 AC_PROG_CC
 
 
-if test "x$target_alias" != x; then
+if test "x$host_alias" != x; then
   # We do not necessarily need crt0 and friends when cross-compiling.
   LDFLAGS="-nostdlib $LDFLAGS"
-  TARGET=$target_alias
+  HOST=$host_alias
 else
-  TARGET=`(uname -m) 2>/dev/null || echo unknown`
+  HOST=`(uname -m) 2>/dev/null || echo unknown`
 fi
 
-case $TARGET in
+case $HOST in
   ia32|x86*|i386*|i486*|i586*|i686*|amd64*)
-        AC_DEFINE_UNQUOTED([TARGET], [X86], [Target architecture])
+        AC_DEFINE_UNQUOTED([HOST], [X86], [Host architecture])
         NETARCH=infiniband
 	;;
   powerpc*)
-        AC_DEFINE_UNQUOTED([TARGET], [POWERPC], [Target architecture])
+        AC_DEFINE_UNQUOTED([HOST], [POWERPC], [Host architecture])
         NETARCH=bgp 
 	;;
   *)
-	AC_MSG_ERROR([Unknown hardware architecture: $TARGET.
-	Please specify hardware architecture using --target=ARCH.])
+	AC_MSG_ERROR([Unknown hardware architecture: $HOST
+	Please specify hardware architecture using --host=ARCH.])
 	;;
 esac
 
