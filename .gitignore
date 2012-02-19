@@ -7,3 +7,4 @@
 /libtool
 /Makefile
 /config.log
+*.o

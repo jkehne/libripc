@@ -11,4 +11,4 @@
 /multicast_resources.lo
 /resources.lo
 /resolver.lo
-/autom4te.cache/*
+/autom4te.cache/**.o
