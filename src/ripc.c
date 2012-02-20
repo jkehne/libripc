@@ -17,6 +17,13 @@ uint8_t init(void) {
 	if (context.device_context != NULL)
 		return true;
 
+	int ret = ibv_fork_init();
+	if (ret) {
+		ERROR("ibv_fork_init failed: %s", strerror(ret));
+	} else {
+		DEBUG("ibv_fork_init terminated successfully");
+	}
+
 	srand(time(NULL));
 	struct ibv_device **sys_devices = ibv_get_device_list(NULL);
 	if (!sys_devices) {
@@ -329,7 +336,7 @@ ripc_send_short(
 	pthread_mutex_unlock(&remotes_mutex);
 	wr.send_flags = IBV_SEND_SIGNALED;
 
-	DEBUG("Sending message containing %u items to lid %u, qpn %u using qkey %d",
+	DEBUG("Sending message containing %u items to service %u, qpn %u using qkey %d",
 			wr.num_sge,
 			dest,
 			wr.wr.ud.remote_qpn,

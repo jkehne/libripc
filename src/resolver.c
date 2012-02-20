@@ -401,10 +401,18 @@ void *start_responder(void *arg) {
 			ibv_req_notify_cq(recvd_on, 0);
 		} while ( ! ibv_poll_cq(recvd_on, 1, &wc));
 
-		post_new_recv_buf(mcast_qp);
-
 		wr = (struct ibv_recv_wr *) wc.wr_id;
 		msg = (struct resolver_msg *)(wr->sg_list->addr + 40);
+
+		DEBUG("Received message: from service: %u, for service: %u, from qpn: %u, from lid: %u, response to: %u",
+				msg->src_service_id,
+				msg->dest_service_id,
+				msg->service_qpn,
+				msg->lid,
+				msg->response_qpn
+				);
+
+		post_new_recv_buf(mcast_qp);
 
 		if (msg->type == RIPC_RDMA_CONN_REQ) {
 			handle_rdma_connect((struct rdma_connect_msg *)msg);
@@ -417,19 +425,12 @@ void *start_responder(void *arg) {
 		//assert(msg->type == RIPC_MSG_RESOLVE_REQ);
 		if (msg->type != RIPC_MSG_RESOLVE_REQ) {
 			ERROR("Spurious resolver message, discarding");
+			ERROR("Type: %#lx, expected %#lx", msg->type, RIPC_MSG_RESOLVE_REQ);
 			ripc_buf_free(msg);
 			free(wr->sg_list);
 			free(wr);
 			continue;
 		}
-
-		DEBUG("Received message: from service: %u, for service: %u, from qpn: %u, from lid: %u, response to: %u",
-				msg->src_service_id,
-				msg->dest_service_id,
-				msg->service_qpn,
-				msg->lid,
-				msg->response_qpn
-				);
 
 		/*
 		 * First, check if one of our own services has been requested,
@@ -567,6 +568,7 @@ void resolve(uint16_t src, uint16_t dest) {
 	struct ibv_sge sge;
 	struct ibv_ah_attr ah_attr;
 	struct ibv_ah *tmp_ah;
+	int i;
 
 	buf_mr = ripc_alloc_recv_buf(sizeof(struct resolver_msg));
 
@@ -578,19 +580,20 @@ void resolve(uint16_t src, uint16_t dest) {
 	DEBUG("Allocated multicast mr");
 	DEBUG("Address: %p", buf_mr->addr);
 
-	struct resolver_msg *msg = (struct resolver_msg *)buf_mr->addr;
+	struct resolver_msg *req_msg = (struct resolver_msg *)buf_mr->addr;
+	struct resolver_msg *msg;
 
-	msg->type = RIPC_MSG_RESOLVE_REQ;
-	msg->dest_service_id = dest;
-	msg->src_service_id = src;
-	msg->lid = context.lid;
+	req_msg->type = RIPC_MSG_RESOLVE_REQ;
+	req_msg->dest_service_id = dest;
+	req_msg->src_service_id = src;
+	req_msg->lid = context.lid;
 	pthread_mutex_lock(&services_mutex);
-	msg->service_qpn = context.services[src]->qp->qp_num;
+	req_msg->service_qpn = context.services[src]->qp->qp_num;
 	pthread_mutex_unlock(&services_mutex);
-	msg->response_qpn = unicast_qp->qp_num;
-	msg->resolver_qpn = mcast_qp->qp_num;
+	req_msg->response_qpn = unicast_qp->qp_num;
+	req_msg->resolver_qpn = mcast_qp->qp_num;
 
-	sge.addr = (uint64_t)msg;
+	sge.addr = (uint64_t)req_msg;
 	sge.length = sizeof(struct resolver_msg);
 	sge.lkey = buf_mr->lkey;
 
@@ -615,6 +618,7 @@ void resolve(uint16_t src, uint16_t dest) {
 	 * TODO: Come up with a better solution!
 	 */
 	pthread_mutex_lock(&resolver_mutex);
+	retry:
 	DEBUG("About to actually post multicast send request");
 	ibv_post_send(mcast_qp, &wr, &bad_wr);
 
@@ -624,7 +628,13 @@ void resolve(uint16_t src, uint16_t dest) {
 
 	DEBUG("Got multicast send completion");
 
-	ripc_buf_free(msg);
+	DEBUG("Multicast message contents: from service: %u, for service: %u, from qpn: %u, from lid: %u, response to: %u",
+			req_msg->src_service_id,
+			req_msg->dest_service_id,
+			req_msg->service_qpn,
+			req_msg->lid,
+			req_msg->response_qpn
+			);
 
 	DEBUG("Successfully sent multicast request, now waiting for reply on qp %u",
 			unicast_qp->qp_num);
@@ -633,8 +643,11 @@ void resolve(uint16_t src, uint16_t dest) {
 	 * Processing of the request shouldn't take long, so we just spin.
 	 * TODO: Implement some sort of timeout!
 	 */
-	while ( ! ibv_poll_cq(unicast_recv_cq, 1, &wc)) { /* wait */ }
-	pthread_mutex_unlock(&resolver_mutex);
+	i = 0;
+	while ( ! ibv_poll_cq(unicast_recv_cq, 1, &wc)) {
+		if (i++ > 1000000)
+			goto retry;
+	}
 
 	post_new_recv_buf(unicast_qp);
 
@@ -651,7 +664,16 @@ void resolve(uint16_t src, uint16_t dest) {
 			msg->response_qpn
 			);
 
-	assert(msg->dest_service_id == dest);
+	//assert(msg->dest_service_id == dest);
+	if (msg->dest_service_id != dest) {
+		DEBUG("Stale resolver response!");
+		ripc_buf_free(msg);
+		goto retry;
+	}
+
+	pthread_mutex_unlock(&resolver_mutex);
+
+	ripc_buf_free(req_msg);
 
 	 //got the info we wanted, now feed it to the cache
 	ah_attr.dlid = msg->lid;
@@ -670,4 +692,6 @@ void resolve(uint16_t src, uint16_t dest) {
 	context.remotes[dest]->resolver_qp = msg->resolver_qpn;
 
 	pthread_mutex_unlock(&remotes_mutex);
+
+	ripc_buf_free(msg);
 }

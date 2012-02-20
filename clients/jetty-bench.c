@@ -9,7 +9,7 @@
 #include "config.h"
 #include "common.h"
 
-int main(void) {
+int main(int argc, char *argv[]) {
 #ifndef CLIENT_SERVICE_ID
 	uint16_t my_service_id = ripc_register_random_service_id();
 #else
@@ -27,7 +27,8 @@ int main(void) {
 	//for sending
 	void *msg_array[1];
 	size_t length_array[1];
-	char *request = "GET /data.txt HTTP/1.0\n\n";
+	char *request = (char *)malloc(100);
+	sprintf(request, "GET /%s HTTP/1.0\n\n", argv[1]);
 	int length; //for sockets
 
 	//for receiving
@@ -35,14 +36,14 @@ int main(void) {
 	uint32_t *short_sizes, *long_sizes;
 	uint16_t from;
 	void *recv_buf = malloc(1048576);
-	void *header_window = ripc_buf_alloc(104857600);
-	void *payload_window = ripc_buf_alloc(104857600);
+	void *header_window = ripc_buf_alloc(268435456);
+	void *payload_window = ripc_buf_alloc(268435456);
 
 	msg_array[0] = ripc_buf_alloc(strlen(request)+10);
 	strcpy((char *)msg_array[0], request);
 	length_array[0] = strlen(request)+10;
 
-	printf("Benchmarking RIPC\n");
+	//printf("Benchmarking RIPC\n");
 
 	recvd = 0;
 	gettimeofday(&before, NULL);
@@ -51,7 +52,7 @@ int main(void) {
 
 		if (ripc_send_short(
 				my_service_id,
-				76,
+				50127,
 				msg_array,
 				length_array,
 				1,
@@ -60,8 +61,8 @@ int main(void) {
 				0))
 			continue;
 
-		ripc_reg_recv_window(header_window, 104857600);
-		ripc_reg_recv_window(payload_window, 104857600);
+		ripc_reg_recv_window(header_window, 268435456);
+		ripc_reg_recv_window(payload_window, 268435456);
 
 		ripc_receive(
 				my_service_id,
@@ -94,6 +95,7 @@ int main(void) {
 	after_usec = after.tv_sec * 1000000 + after.tv_usec;
 	diff = after_usec - before_usec;
 
-	printf("Exchanged %d items in %lu usec (rtt %f usec)\n", recvd, diff, (double)diff / NUM_ROUNDS);
+	//printf("Exchanged %d items in %lu usec (rtt %f usec)\n", recvd, diff, (double)diff / NUM_ROUNDS);
+	printf("%f\n", (double)diff / NUM_ROUNDS);
 	return EXIT_SUCCESS;
 }
