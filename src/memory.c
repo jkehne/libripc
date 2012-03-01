@@ -9,6 +9,8 @@
 #include "common.h"
 #include "memory.h"
 #include <string.h>
+#include <errno.h>
+#include <sys/mman.h>
 
 struct mem_buf_list *used_buffers = NULL;
 struct mem_buf_list *available_buffers = NULL;
@@ -254,24 +256,31 @@ struct ibv_mr *ripc_alloc_recv_buf(size_t size) {
 
 	//none found in cache, so create a new one
 	DEBUG("No hit in free list, allocating new mr");
-	void *buf = valloc(size);
-	//valloc is like malloc, but aligned to page boundary
+	//mmap correctly aligns and zeroes the buffer.
+	void *buf = mmap(
+			0,
+			size,
+			PROT_READ | PROT_WRITE,
+			MAP_SHARED | MAP_ANONYMOUS,
+			-1,
+			0);
 
-	if (buf) {
-		memset(buf, 0, size);
-		mr = ibv_reg_mr(
-				context.pd,
-				buf,
-				size,
-				IBV_ACCESS_LOCAL_WRITE |
-				IBV_ACCESS_REMOTE_READ |
-				IBV_ACCESS_REMOTE_WRITE);
-		DEBUG("mr buffer address is %p, size %u", mr->addr, mr->length);
-		used_buf_list_add(mr);
-		return mr;
+	if (buf == -1) {
+		ERROR("buffer allocation failed: %s", strerror(errno));
+		return NULL;
 	}
 
-	return NULL; //allocation failed
+	assert(buf);
+	mr = ibv_reg_mr(
+			context.pd,
+			buf,
+			size,
+			IBV_ACCESS_LOCAL_WRITE |
+			IBV_ACCESS_REMOTE_READ |
+			IBV_ACCESS_REMOTE_WRITE);
+	DEBUG("mr buffer address is %p, size %u", mr->addr, mr->length);
+	used_buf_list_add(mr);
+	return mr;
 }
 
 void *ripc_buf_alloc(size_t size) {

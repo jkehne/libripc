@@ -302,7 +302,7 @@ void create_rdma_connection(uint16_t src, uint16_t dest) {
 
        //we want only one connection request in flight at a time
        pthread_mutex_lock(&rdma_connect_mutex);
-
+retry:
        if (ibv_post_send(rdma_qp, &wr, &bad_wr)) {
     	   ERROR("Failed to send rdma connect request");
     	   goto error;
@@ -314,7 +314,11 @@ void create_rdma_connection(uint16_t src, uint16_t dest) {
 
        while ( ! ibv_poll_cq(rdma_send_cq, 1, &wc)) { /* wait for send completion */ }
 
-       while ( ! ibv_poll_cq(rdma_recv_cq, 1, &wc)) { /* wait for response */ }
+       int i = 0;
+       while ( ! ibv_poll_cq(rdma_recv_cq, 1, &wc)) {
+    	   if (i++ > 100000000)
+    		   goto retry;
+       }
 
        post_new_recv_buf(rdma_qp);
 

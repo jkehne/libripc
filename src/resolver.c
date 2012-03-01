@@ -35,16 +35,24 @@ void handle_rdma_connect(struct rdma_connect_msg *msg) {
 
     pthread_mutex_lock(&remotes_mutex);
     if (remote->state == RIPC_RDMA_ESTABLISHED) {
-            //another thread beat us here
-            pthread_mutex_unlock(&remotes_mutex);
-            return;
+		/*
+		 * Either another thread beat us here, or a previous response
+		 * got lost. In either case, if remote is still the same service
+		 * that sent the first request, we can keep our state and just
+		 * re-send the reply. However, if remote is a new instance with
+		 * the same service ID, this will result in an invalid connection
+		 * state.
+		 *
+		 * todo: proper handling of crashed remotes.
+		 */
+		goto reply;
     }
     if (remote->state == RIPC_RDMA_CONNECTING) {
-            //another thread is in the process of connecting, but not finished yet
-            pthread_mutex_unlock(&remotes_mutex);
-            //fixme: sleep() is nasty, find something better
-            sleep(1); //give the other guy some time to finish
-            return;
+		//another thread is in the process of connecting, but not finished yet
+		pthread_mutex_unlock(&remotes_mutex);
+		//fixme: sleep() is nasty, find something better
+		sleep(1); //give the other guy some time to finish
+		return;
     }
 
     /*
@@ -194,6 +202,7 @@ void handle_rdma_connect(struct rdma_connect_msg *msg) {
 #endif
 
 	//now send a reply to let the other side know our details
+reply:
 	msg->lid = context.lid;
 	msg->qpn = remote->rdma_qp->qp_num;
 	msg->psn = psn;
@@ -645,7 +654,7 @@ void resolve(uint16_t src, uint16_t dest) {
 	 */
 	i = 0;
 	while ( ! ibv_poll_cq(unicast_recv_cq, 1, &wc)) {
-		if (i++ > 1000000)
+		if (i++ > 100000000)
 			goto retry;
 	}
 

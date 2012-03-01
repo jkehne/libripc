@@ -8,3 +8,4 @@
 /Makefile
 /config.log
 *.o
+/autom4te.cache

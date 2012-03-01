@@ -17,13 +17,6 @@ uint8_t init(void) {
 	if (context.device_context != NULL)
 		return true;
 
-	int ret = ibv_fork_init();
-	if (ret) {
-		ERROR("ibv_fork_init failed: %s", strerror(ret));
-	} else {
-		DEBUG("ibv_fork_init terminated successfully");
-	}
-
 	srand(time(NULL));
 	struct ibv_device **sys_devices = ibv_get_device_list(NULL);
 	if (!sys_devices) {
@@ -762,6 +755,7 @@ ripc_receive(
 	for (i = 0; i < hdr->short_words; ++i) {
 		(*short_items)[i] = (void *)(wr->sg_list->addr + msg[i].offset);
 		(*short_item_sizes)[i] = msg[i].size;
+		DEBUG("Short word %u reads:\n%s", i, (*short_items)[i]);
 	}
 
 	if (hdr->long_words) {
