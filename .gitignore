@@ -10,3 +10,5 @@
 *.o
 /autom4te.cache
 /build
+Makefile.in
+configure
