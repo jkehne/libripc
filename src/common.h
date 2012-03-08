@@ -8,8 +8,12 @@
 #include <stdint.h>
 #include <pthread.h>
 #ifdef ENABLE_INFINIBAND
-#include <infiniband/verbs.h>
+#include <infiniband/common.h>
 #endif
+#ifdef ENABLE_BGP
+#include <common_bgp.h>
+#endif
+
 #include "memory.h"
 #define ERROR(...) fprintf(stderr, "Thread %d: %s() (%s, line %u): ", pthread_self(), __PRETTY_FUNCTION__, __FILE__, __LINE__); fprintf(stderr, __VA_ARGS__); fprintf(stderr,"\n")
 #define panic(...) fprintf(stderr, "Thread %d: %s() (%s, line %u): FATAL: ", pthread_self(), __PRETTY_FUNCTION__, __FILE__, __LINE__); fprintf(stderr, __VA_ARGS__); fprintf(stderr,"\n"); exit(EXIT_FAILURE)

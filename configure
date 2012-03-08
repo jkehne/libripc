@@ -612,6 +612,10 @@ ac_subst_vars='am__EXEEXT_FALSE
 am__EXEEXT_TRUE
 LTLIBOBJS
 LIBOBJS
+ENABLE_BGP_FALSE
+ENABLE_BGP_TRUE
+ENABLE_INFINIBAND_FALSE
+ENABLE_INFINIBAND_TRUE
 CPP
 OTOOL64
 OTOOL
@@ -12221,6 +12225,24 @@ else
 fi
 
 
+
+ if  test $NETARCH = infiniband ; then
+  ENABLE_INFINIBAND_TRUE=
+  ENABLE_INFINIBAND_FALSE='#'
+else
+  ENABLE_INFINIBAND_TRUE='#'
+  ENABLE_INFINIBAND_FALSE=
+fi
+
+ if  test $NETARCH = bgp ; then
+  ENABLE_BGP_TRUE=
+  ENABLE_BGP_FALSE='#'
+else
+  ENABLE_BGP_TRUE='#'
+  ENABLE_BGP_FALSE=
+fi
+
+
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for ANSI C header files" >&5
 $as_echo_n "checking for ANSI C header files... " >&6; }
 if ${ac_cv_header_stdc+:} false; then :
@@ -12544,7 +12566,7 @@ fi
 
 ac_config_headers="$ac_config_headers src/config.h clients/config.h"
 
-ac_config_files="$ac_config_files Makefile src/Makefile clients/Makefile"
+ac_config_files="$ac_config_files Makefile src/Makefile clients/Makefile src/infiniband/Makefile src/bgp/Makefile"
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
@@ -12673,6 +12695,14 @@ Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${am__fastdepCC_TRUE}" && test -z "${am__fastdepCC_FALSE}"; then
   as_fn_error $? "conditional \"am__fastdepCC\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
+if test -z "${ENABLE_INFINIBAND_TRUE}" && test -z "${ENABLE_INFINIBAND_FALSE}"; then
+  as_fn_error $? "conditional \"ENABLE_INFINIBAND\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
+if test -z "${ENABLE_BGP_TRUE}" && test -z "${ENABLE_BGP_FALSE}"; then
+  as_fn_error $? "conditional \"ENABLE_BGP\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 
@@ -13563,6 +13593,8 @@ do
     "Makefile") CONFIG_FILES="$CONFIG_FILES Makefile" ;;
     "src/Makefile") CONFIG_FILES="$CONFIG_FILES src/Makefile" ;;
     "clients/Makefile") CONFIG_FILES="$CONFIG_FILES clients/Makefile" ;;
+    "src/infiniband/Makefile") CONFIG_FILES="$CONFIG_FILES src/infiniband/Makefile" ;;
+    "src/bgp/Makefile") CONFIG_FILES="$CONFIG_FILES src/bgp/Makefile" ;;
 
   *) as_fn_error $? "invalid argument: \`$ac_config_target'" "$LINENO" 5;;
   esac

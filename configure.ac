@@ -87,6 +87,10 @@ AC_CHECK_LIB([pthread],[pthread_create],[],[
 	exit -1
 ])
 
+
+AM_CONDITIONAL([ENABLE_INFINIBAND], [ test $NETARCH = infiniband ])
+AM_CONDITIONAL([ENABLE_BGP], [ test $NETARCH = bgp ])
+
 AC_HEADER_STDC
 AC_HEADER_STDBOOL
 AC_HEADER_ASSERT
@@ -103,6 +107,6 @@ AS_IF([test "x$enable_debug" = "xyes"], [AC_DEFINE([HAVE_DEBUG], [1], [Define to
 AS_IF([test "x$enable_debug" = "xyes"], [CFLAGS="-O0 -ggdb3"])
 
 AC_CONFIG_HEADERS([src/config.h clients/config.h])
-AC_CONFIG_FILES(Makefile src/Makefile clients/Makefile)
+AC_CONFIG_FILES(Makefile src/Makefile clients/Makefile src/infiniband/Makefile src/bgp/Makefile)
 AC_OUTPUT
 
