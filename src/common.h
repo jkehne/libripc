@@ -11,12 +11,12 @@
 #include <infiniband/common.h>
 #endif
 #ifdef ENABLE_BGP
-#include <common_bgp.h>
+#include <bgp/common.h>
 #endif
 
 #include "memory.h"
-#define ERROR(...) fprintf(stderr, "Thread %d: %s() (%s, line %u): ", pthread_self(), __PRETTY_FUNCTION__, __FILE__, __LINE__); fprintf(stderr, __VA_ARGS__); fprintf(stderr,"\n")
-#define panic(...) fprintf(stderr, "Thread %d: %s() (%s, line %u): FATAL: ", pthread_self(), __PRETTY_FUNCTION__, __FILE__, __LINE__); fprintf(stderr, __VA_ARGS__); fprintf(stderr,"\n"); exit(EXIT_FAILURE)
+#define ERROR(...) fprintf(stderr, "Thread %d: %s() (%s, line %u): ", (int) pthread_self(), __PRETTY_FUNCTION__, __FILE__, __LINE__); fprintf(stderr, __VA_ARGS__); fprintf(stderr,"\n")
+#define panic(...) fprintf(stderr, "Thread %d: %s() (%s, line %u): FATAL: ", (int) pthread_self(), __PRETTY_FUNCTION__, __FILE__, __LINE__); fprintf(stderr, __VA_ARGS__); fprintf(stderr,"\n"); exit(EXIT_FAILURE)
 
 #ifdef HAVE_DEBUG
 #define DEBUG(...) ERROR(__VA_ARGS__)
@@ -58,28 +58,19 @@ enum conn_state {
 
 struct service_id {
 	uint16_t number;
-	struct ibv_cq *send_cq;
-	struct ibv_cq *recv_cq;
-	struct ibv_qp *qp;
-	struct ibv_comp_channel *cchannel;
+        struct netarch_service_id netarch;
 };
 
 struct remote_context {
-	uint32_t qp_num;
-	struct ibv_ah *ah;
-	uint32_t resolver_qp;
 	enum conn_state state;
-	struct ibv_qp *rdma_qp;
-	struct ibv_cq *rdma_send_cq;
-	struct ibv_cq *rdma_recv_cq;
-	struct ibv_comp_channel *rdma_cchannel;
 	struct mem_buf_list *return_bufs;
+	uint32_t resolver_qp;
+	uint32_t qp_num;
+	struct netarch_remote_context netarch;
 };
 
 struct library_context {
-	struct ibv_context *device_context;
-	struct ibv_pd *pd;
-	uint16_t lid;
+	struct netarch_library_context netarch;
 	struct service_id *services[UINT16_MAX];
 	struct remote_context *remotes[UINT16_MAX];
 };

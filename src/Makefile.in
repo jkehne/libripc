@@ -75,8 +75,8 @@ am__installdirs = "$(DESTDIR)$(libdir)" "$(DESTDIR)$(includedir)"
 LTLIBRARIES = $(lib_LTLIBRARIES)
 @ENABLE_BGP_FALSE@@ENABLE_INFINIBAND_TRUE@libripc_la_DEPENDENCIES = infiniband/libripc.la
 @ENABLE_BGP_TRUE@libripc_la_DEPENDENCIES = infiniband/libripc.la
-am_libripc_la_OBJECTS = memory.lo resolver.lo multicast_resources.lo \
-	resources.lo
+am_libripc_la_OBJECTS = ripc.lo memory.lo resolver.lo \
+	multicast_resources.lo resources.lo
 libripc_la_OBJECTS = $(am_libripc_la_OBJECTS)
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)/clients
 depcomp = $(SHELL) $(top_srcdir)/depcomp
@@ -254,7 +254,7 @@ top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 lib_LTLIBRARIES = libripc.la
 include_HEADERS = ripc.h common.h config.h memory.h resolver.h multicast_resources.h resources.h
-libripc_la_SOURCES = memory.c resolver.c multicast_resources.c resources.c
+libripc_la_SOURCES = ripc.c memory.c resolver.c multicast_resources.c resources.c
 @ENABLE_BGP_TRUE@SUBDIRS = bgp
 @ENABLE_INFINIBAND_TRUE@SUBDIRS = infiniband
 @ENABLE_BGP_TRUE@libripc_la_LIBADD = infiniband/libripc.la
@@ -355,6 +355,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/multicast_resources.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/resolver.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/resources.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ripc.Plo@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<

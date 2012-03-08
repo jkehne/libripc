@@ -265,14 +265,14 @@ struct ibv_mr *ripc_alloc_recv_buf(size_t size) {
 			-1,
 			0);
 
-	if (buf == -1) {
+	if (buf == (void *) -1) {
 		ERROR("buffer allocation failed: %s", strerror(errno));
 		return NULL;
 	}
 
 	assert(buf);
 	mr = ibv_reg_mr(
-			context.pd,
+			context.netarch.pd,
 			buf,
 			size,
 			IBV_ACCESS_LOCAL_WRITE |
@@ -307,7 +307,7 @@ uint8_t ripc_buf_register(void *buf, size_t size) {
 	}
 	if (!mr)
 		mr = ibv_reg_mr(
-				context.pd,
+				context.netarch.pd,
 				buf,
 				size,
 				IBV_ACCESS_LOCAL_WRITE |

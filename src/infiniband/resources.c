@@ -15,7 +15,7 @@ void alloc_queue_state(
 	uint32_t i;
 
 	if (cchannel) { //completion channel is optional
-		*cchannel = ibv_create_comp_channel(context.device_context);
+		*cchannel = ibv_create_comp_channel(context.netarch.device_context);
 		if (*cchannel == NULL) {
 			ERROR("Failed to allocate completion event channel!");
 			goto error;
@@ -26,7 +26,7 @@ void alloc_queue_state(
 	}
 
 	*recv_cq = ibv_create_cq(
-			context.device_context,
+			context.netarch.device_context,
 			100,
 			NULL,
 			cchannel ? *cchannel : NULL,
@@ -40,7 +40,7 @@ void alloc_queue_state(
 	}
 
 	*send_cq = ibv_create_cq(
-			context.device_context,
+			context.netarch.device_context,
 			100,
 			NULL,
 			NULL,
@@ -68,7 +68,7 @@ void alloc_queue_state(
 		.sq_sig_all = 0
 	};
 	*qp = ibv_create_qp(
-			context.pd,
+			context.netarch.pd,
 			&init_attr);
 	if (qp == NULL) {
 		ERROR("Failed to allocate queue pair!");
@@ -188,49 +188,49 @@ void create_rdma_connection(uint16_t src, uint16_t dest) {
         */
        remote->state = RIPC_RDMA_CONNECTING;
 
-       remote->rdma_cchannel = ibv_create_comp_channel(context.device_context);
-       if (remote->rdma_cchannel == NULL) {
+       remote->netarch.rdma_cchannel = ibv_create_comp_channel(context.netarch.device_context);
+       if (remote->netarch.rdma_cchannel == NULL) {
                ERROR("Failed to allocate rdma completion channel!");
                goto error;
                return;
        } else {
-               DEBUG("Allocated rdma completion channel: %u", remote->rdma_cchannel->fd);
+               DEBUG("Allocated rdma completion channel: %u", remote->netarch.rdma_cchannel->fd);
        }
 
-       remote->rdma_recv_cq = ibv_create_cq(
-                       context.device_context,
+       remote->netarch.rdma_recv_cq = ibv_create_cq(
+                       context.netarch.device_context,
                        100,
                        NULL,
                        NULL,
                        0);
-       if (remote->rdma_recv_cq == NULL) {
+       if (remote->netarch.rdma_recv_cq == NULL) {
                ERROR("Failed to allocate receive completion queue!");
                goto error;
                return;
        } else {
-               DEBUG("Allocated receive completion queue: %u", remote->rdma_recv_cq->handle);
+               DEBUG("Allocated receive completion queue: %u", remote->netarch.rdma_recv_cq->handle);
        }
 
-       remote->rdma_send_cq = ibv_create_cq(
-                       context.device_context,
+       remote->netarch.rdma_send_cq = ibv_create_cq(
+                       context.netarch.device_context,
                        100,
                        NULL,
-                       remote->rdma_cchannel,
+                       remote->netarch.rdma_cchannel,
                        0);
-       if (remote->rdma_send_cq == NULL) {
+       if (remote->netarch.rdma_send_cq == NULL) {
                ERROR("Failed to allocate send completion queue!");
                goto error;
                return;
        } else {
-               DEBUG("Allocated send completion queue: %u", remote->rdma_send_cq->handle);
+               DEBUG("Allocated send completion queue: %u", remote->netarch.rdma_send_cq->handle);
        }
 
-       ibv_req_notify_cq(remote->rdma_send_cq, 0);
+       ibv_req_notify_cq(remote->netarch.rdma_send_cq, 0);
 
        //now for the qp. Remember that we need an RC qp here!
        struct ibv_qp_init_attr init_attr = {
-               .send_cq = remote->rdma_send_cq,
-               .recv_cq = remote->rdma_recv_cq,
+               .send_cq = remote->netarch.rdma_send_cq,
+               .recv_cq = remote->netarch.rdma_recv_cq,
                .cap     = {
                        .max_send_wr  = 2000,
                        .max_recv_wr  = 1, //0 doesn't work here as it seems...
@@ -240,12 +240,12 @@ void create_rdma_connection(uint16_t src, uint16_t dest) {
                .qp_type = IBV_QPT_RC
        };
 
-       remote->rdma_qp = ibv_create_qp(context.pd, &init_attr);
-       if (!remote->rdma_qp) {
+       remote->netarch.rdma_qp = ibv_create_qp(context.netarch.pd, &init_attr);
+       if (!remote->netarch.rdma_qp) {
                ERROR("Failed to allocate rdma QP");
                goto error;
        } else {
-               DEBUG("Allocated rdma QP %u", remote->rdma_qp->qp_num);
+               DEBUG("Allocated rdma QP %u", remote->netarch.rdma_qp->qp_num);
        }
 
        struct ibv_qp_attr attr;
@@ -254,13 +254,13 @@ void create_rdma_connection(uint16_t src, uint16_t dest) {
        attr.pkey_index = 0;
        attr.qp_access_flags = IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_WRITE;
 
-       if (ibv_modify_qp(remote->rdma_qp, &attr,
+       if (ibv_modify_qp(remote->netarch.rdma_qp, &attr,
                        IBV_QP_STATE |
                        IBV_QP_PKEY_INDEX |
                        IBV_QP_PORT |
                        IBV_QP_ACCESS_FLAGS
                        )) {
-               ERROR("Failed to modify rdma QP %u state to INIT", remote->rdma_qp->qp_num);
+               ERROR("Failed to modify rdma QP %u state to INIT", remote->netarch.rdma_qp->qp_num);
                goto error;
        }
 
@@ -272,11 +272,11 @@ void create_rdma_connection(uint16_t src, uint16_t dest) {
        struct ibv_mr *connect_mr = ripc_alloc_recv_buf(sizeof(struct rdma_connect_msg));
        struct rdma_connect_msg *msg = (struct rdma_connect_msg *)connect_mr->addr;
        msg->type = RIPC_RDMA_CONN_REQ;
-       msg->qpn = remote->rdma_qp->qp_num;
+       msg->qpn = remote->netarch.rdma_qp->qp_num;
        msg->psn = psn;
        msg->src_service_id = src;
        msg->dest_service_id = dest;
-       msg->lid = context.lid;
+       msg->lid = context.netarch.lid;
        msg->response_qpn = rdma_qp->qp_num;
 
        struct ibv_sge sge;
@@ -291,7 +291,7 @@ void create_rdma_connection(uint16_t src, uint16_t dest) {
        wr.send_flags = IBV_SEND_SIGNALED;
        wr.sg_list = &sge;
        wr.wr_id = 0xdeadbeef;
-       wr.wr.ud.ah = remote->ah;
+       wr.wr.ud.ah = remote->netarch.ah;
        wr.wr.ud.remote_qpn = remote->resolver_qp;
        wr.wr.ud.remote_qkey = 0xffff;
 
@@ -353,7 +353,7 @@ retry:
 
        pthread_mutex_lock(&remotes_mutex);
 
-       if (ibv_modify_qp(remote->rdma_qp, &attr,
+       if (ibv_modify_qp(remote->netarch.rdma_qp, &attr,
     		   IBV_QP_STATE              |
     		   IBV_QP_AV                 |
     		   IBV_QP_PATH_MTU           |
@@ -361,7 +361,7 @@ retry:
     		   IBV_QP_RQ_PSN             |
     		   IBV_QP_MAX_DEST_RD_ATOMIC |
     		   IBV_QP_MIN_RNR_TIMER)) {
-    	   ERROR("Failed to rdma modify QP %u to RTR", remote->rdma_qp->qp_num);
+    	   ERROR("Failed to rdma modify QP %u to RTR", remote->netarch.rdma_qp->qp_num);
     	   goto error;
        }
 
@@ -371,24 +371,24 @@ retry:
        attr.rnr_retry 	    = 7;
        attr.sq_psn 	    = psn;
        attr.max_rd_atomic  = 1;
-       if (ibv_modify_qp(remote->rdma_qp, &attr,
+       if (ibv_modify_qp(remote->netarch.rdma_qp, &attr,
     		   IBV_QP_STATE              |
     		   IBV_QP_TIMEOUT            |
     		   IBV_QP_RETRY_CNT          |
     		   IBV_QP_RNR_RETRY          |
     		   IBV_QP_SQ_PSN             |
     		   IBV_QP_MAX_QP_RD_ATOMIC)) {
-    	   ERROR("Failed to modify rdma QP %u to RTS", remote->rdma_qp->qp_num);
+    	   ERROR("Failed to modify rdma QP %u to RTS", remote->netarch.rdma_qp->qp_num);
     	   goto error;
        }
 
-       post_new_recv_buf(remote->rdma_qp);
+       post_new_recv_buf(remote->netarch.rdma_qp);
 
        //all done? Then we're connected now :)
        remote->state = RIPC_RDMA_ESTABLISHED;
 
 #ifdef HAVE_DEBUG
-       dump_qp_state(remote->rdma_qp);
+       dump_qp_state(remote->netarch.rdma_qp);
 #endif
 
        pthread_mutex_unlock(&remotes_mutex);
@@ -401,12 +401,12 @@ retry:
        return;
 
        error:
-       if (remote->rdma_qp)
-               ibv_destroy_qp(remote->rdma_qp);
-       if (remote->rdma_recv_cq)
-               ibv_destroy_cq(remote->rdma_recv_cq);
-       if (remote->rdma_send_cq)
-               ibv_destroy_cq(remote->rdma_recv_cq);
+       if (remote->netarch.rdma_qp)
+               ibv_destroy_qp(remote->netarch.rdma_qp);
+       if (remote->netarch.rdma_recv_cq)
+               ibv_destroy_cq(remote->netarch.rdma_recv_cq);
+       if (remote->netarch.rdma_send_cq)
+               ibv_destroy_cq(remote->netarch.rdma_recv_cq);
        remote->state = RIPC_RDMA_DISCONNECTED;
        pthread_mutex_unlock(&remotes_mutex);
 }
@@ -433,8 +433,8 @@ void dump_qp_state(struct ibv_qp *qp) {
 	ERROR("mtu: %u", attr.path_mtu);
 	ERROR("pkey index: %u", attr.pkey_index);
 	ERROR("port num: %u", attr.port_num);
-	ERROR("qkey: %#lx", attr.qkey);
-	ERROR("access flags: %#lx", attr.qp_access_flags);
+	ERROR("qkey: %#x", attr.qkey);
+	ERROR("access flags: %#x", attr.qp_access_flags);
 	ERROR("retry count: %u", attr.retry_cnt);
 	ERROR("RNR retry count: %u", attr.rnr_retry);
 	ERROR("RQ psn: %u", attr.rq_psn);
