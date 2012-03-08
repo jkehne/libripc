@@ -1,5 +1,6 @@
-#include "resources.h"
-#include "memory.h"
+#include <../common.h>
+#include <../resources.h>
+#include <memory.h>
 
 struct ibv_cq *rdma_send_cq, *rdma_recv_cq;
 struct ibv_qp *rdma_qp;

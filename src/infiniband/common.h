@@ -1,5 +1,9 @@
-#ifndef __COMMON_INFINIBAND_H__
-#define __COMMON_INFINIBAND_H__
+#ifndef COMMON_H_
+#include "../common.h"
+#endif
+
+#ifndef __INFINIBAND_COMMON_H__
+#define __INFINIBAND_COMMON_H__
 
 #include <infiniband/verbs.h>
 
@@ -24,4 +28,4 @@ struct netarch_library_context {
 	uint16_t lid;
 };
 
-#endif /* !__COMMON_INFINIBAND_H__ */
+#endif /* !__INFINIBAND_COMMON_H__ */

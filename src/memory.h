@@ -10,6 +10,7 @@
 
 #include <sys/types.h>
 #include <pthread.h>
+#include <common.h>
 
 struct mem_buf_list {
 	struct ibv_mr *mr;

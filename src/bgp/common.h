@@ -1,6 +1,8 @@
-#ifndef __COMMON_INFINIBAND_H__
-#define __COMMON_INFINIBAND_H__
+#ifndef COMMON_H_
+#include "../resources.h"
+#endif
 
-#include <infiniband/verbs.h>
+#ifndef __BGP_COMMON_H__
+#define __BGP_COMMON_H__
 
-#endif /* !__COMMON_INFINIBAND_H__ */
+#endif /* !__BGP_COMMON_H__ */

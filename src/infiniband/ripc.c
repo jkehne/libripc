@@ -3,11 +3,11 @@
 #include <string.h>
 #include <pthread.h>
 #include <errno.h>
-#include <ripc.h>
 #include <common.h>
+#include <resources.h>
+#include <ripc.h>
 #include <memory.h>
 #include <resolver.h>
-#include <resources.h>
 
 uint8_t netarch_init(void) {
 	struct ibv_device **sys_devices = ibv_get_device_list(NULL);
