@@ -15,6 +15,7 @@ pthread_mutex_t services_mutex, remotes_mutex;
 
 uint8_t init(void) {
     
+	DEBUG("init %d", context.initialized);
         if (context.initialized)
             return true;
 
@@ -22,7 +23,9 @@ uint8_t init(void) {
 
         memset(context.services, 0, UINT16_MAX * sizeof(struct service_id *));
 	memset(context.remotes, 0, UINT16_MAX * sizeof(struct remote_context *));
-        
+
+        netarch_init();
+                
         pthread_mutex_init(&services_mutex, NULL);
 	pthread_mutex_init(&remotes_mutex, NULL);
 	pthread_mutex_init(&used_list_mutex, NULL);
@@ -33,7 +36,8 @@ uint8_t init(void) {
 
         dispatch_responder();
 
-	return netarch_init();
+       
+        return 0;
 
 }
 

@@ -9,8 +9,9 @@
 #include <memory.h>
 #include <resolver.h>
 
-uint8_t netarch_init(void) {
+void netarch_init(void) {
     
+	DEBUG("netarch_init");
     	context.na.device_context = NULL;
         
 	struct ibv_device **sys_devices = ibv_get_device_list(NULL);
@@ -76,7 +77,6 @@ uint8_t netarch_init(void) {
 	alloc_queue_state(&rdma_service_id);
 
         context.initialized = true;
-        return 0;
 }
 
 

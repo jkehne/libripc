@@ -7,11 +7,6 @@
 
 void dump_qp_state(struct ibv_qp *qp);
 
-//      struct ibv_comp_channel **cchannel,
-//      struct ibv_cq **send_cq,
-//      struct ibv_cq **recv_cq,
-//      struct ibv_qp **qp,
-
 void create_rdma_connection(
                uint16_t src,
                uint16_t dest

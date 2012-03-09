@@ -5,8 +5,7 @@
 struct service_id rdma_service_id;
 pthread_mutex_t rdma_connect_mutex;
 
-void alloc_queue_state(struct service_id *service_id
-        ) {
+void alloc_queue_state(struct service_id *service_id) {
 	uint32_t i;
 
 	if (service_id->na.init_cchannel) { //completion channel is optional
