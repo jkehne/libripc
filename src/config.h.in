@@ -62,11 +62,14 @@
 /* Define to 1 if assertions should be disabled. */
 #undef NDEBUG
 
-/* Enable local network (UNIX pipe) */
+/* Enable BG/P network architecture */
 #undef NETARCH_BGP
 
 /* Enable InfiniBand network architecture */
 #undef NETARCH_INFINIBAND
+
+/* Enable local network (UNIX pipe) */
+#undef NETARCH_LOCAL
 
 /* Name of package */
 #undef PACKAGE

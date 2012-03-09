@@ -272,7 +272,7 @@ struct ibv_mr *ripc_alloc_recv_buf(size_t size) {
 
 	assert(buf);
 	mr = ibv_reg_mr(
-			context.netarch.pd,
+			context.na.pd,
 			buf,
 			size,
 			IBV_ACCESS_LOCAL_WRITE |
@@ -307,7 +307,7 @@ uint8_t ripc_buf_register(void *buf, size_t size) {
 	}
 	if (!mr)
 		mr = ibv_reg_mr(
-				context.netarch.pd,
+				context.na.pd,
 				buf,
 				size,
 				IBV_ACCESS_LOCAL_WRITE |

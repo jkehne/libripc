@@ -1,5 +1,5 @@
 #ifndef COMMON_H_
-#include "../resources.h"
+#include "../common.h"
 #endif
 
 #ifndef __BGP_COMMON_H__

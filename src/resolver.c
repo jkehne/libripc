@@ -6,9 +6,8 @@
 #include <string.h>
 #include <pthread.h>
 
-struct ibv_cq *mcast_send_cq, *mcast_recv_cq, *unicast_send_cq, *unicast_recv_cq;
-struct ibv_qp *mcast_qp, *unicast_qp;
-struct ibv_comp_channel *mcast_cchannel;
+struct service_id mcast_service_id, unicast_service_id;
+
 struct ibv_ah *mcast_ah;
 pthread_t responder_thread;
 pthread_mutex_t resolver_mutex;
@@ -65,49 +64,49 @@ void handle_rdma_connect(struct rdma_connect_msg *msg) {
 
 	remote->state = RIPC_RDMA_CONNECTING;
 
-	remote->netarch.rdma_cchannel = ibv_create_comp_channel(context.netarch.device_context);
-    if (remote->netarch.rdma_cchannel == NULL) {
+	remote->na.rdma_cchannel = ibv_create_comp_channel(context.na.device_context);
+    if (remote->na.rdma_cchannel == NULL) {
             ERROR("Failed to allocate rdma completion channel!");
             goto error;
             return;
     } else {
-            DEBUG("Allocated rdma completion channel: %u", remote->netarch.rdma_cchannel->fd);
+            DEBUG("Allocated rdma completion channel: %u", remote->na.rdma_cchannel->fd);
     }
 
-    remote->netarch.rdma_recv_cq = ibv_create_cq(
-                    context.netarch.device_context,
+    remote->na.rdma_recv_cq = ibv_create_cq(
+                    context.na.device_context,
                     100,
                     NULL,
                     NULL,
                     0);
-    if (remote->netarch.rdma_recv_cq == NULL) {
+    if (remote->na.rdma_recv_cq == NULL) {
             ERROR("Failed to allocate receive completion queue!");
             goto error;
             return;
     } else {
-            DEBUG("Allocated receive completion queue: %u", remote->netarch.rdma_recv_cq->handle);
+            DEBUG("Allocated receive completion queue: %u", remote->na.rdma_recv_cq->handle);
     }
 
-    remote->netarch.rdma_send_cq = ibv_create_cq(
-                    context.netarch.device_context,
+    remote->na.rdma_send_cq = ibv_create_cq(
+                    context.na.device_context,
                     100,
                     NULL,
-                    remote->netarch.rdma_cchannel,
+                    remote->na.rdma_cchannel,
                     0);
-    if (remote->netarch.rdma_send_cq == NULL) {
+    if (remote->na.rdma_send_cq == NULL) {
             ERROR("Failed to allocate send completion queue!");
             goto error;
             return;
     } else {
-            DEBUG("Allocated send completion queue: %u", remote->netarch.rdma_send_cq->handle);
+            DEBUG("Allocated send completion queue: %u", remote->na.rdma_send_cq->handle);
     }
 
-    ibv_req_notify_cq(remote->netarch.rdma_send_cq, 0);
+    ibv_req_notify_cq(remote->na.rdma_send_cq, 0);
 
     //now for the qp. Remember that we need an RC qp here!
     struct ibv_qp_init_attr init_attr = {
-            .send_cq = remote->netarch.rdma_send_cq,
-            .recv_cq = remote->netarch.rdma_recv_cq,
+            .send_cq = remote->na.rdma_send_cq,
+            .recv_cq = remote->na.rdma_recv_cq,
             .cap     = {
                     .max_send_wr  = 2000,
                     .max_recv_wr  = 1, //0 doesn't work here as it seems...
@@ -117,12 +116,12 @@ void handle_rdma_connect(struct rdma_connect_msg *msg) {
             .qp_type = IBV_QPT_RC
     };
 
-    remote->netarch.rdma_qp = ibv_create_qp(context.netarch.pd, &init_attr);
-    if (!remote->netarch.rdma_qp) {
+    remote->na.rdma_qp = ibv_create_qp(context.na.pd, &init_attr);
+    if (!remote->na.rdma_qp) {
             ERROR("Failed to allocate rdma QP");
             goto error;
     } else {
-            DEBUG("Allocated rdma QP %u", remote->netarch.rdma_qp->qp_num);
+            DEBUG("Allocated rdma QP %u", remote->na.rdma_qp->qp_num);
     }
 
     struct ibv_qp_attr attr;
@@ -131,13 +130,13 @@ void handle_rdma_connect(struct rdma_connect_msg *msg) {
     attr.pkey_index = 0;
     attr.qp_access_flags = IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_WRITE;
 
-    if (ibv_modify_qp(remote->netarch.rdma_qp, &attr,
+    if (ibv_modify_qp(remote->na.rdma_qp, &attr,
                     IBV_QP_STATE |
                     IBV_QP_PKEY_INDEX |
                     IBV_QP_PORT |
                     IBV_QP_ACCESS_FLAGS
                     )) {
-            ERROR("Failed to modify rdma QP %u state to INIT", remote->netarch.rdma_qp->qp_num);
+            ERROR("Failed to modify rdma QP %u state to INIT", remote->na.rdma_qp->qp_num);
             goto error;
     }
 
@@ -160,7 +159,7 @@ void handle_rdma_connect(struct rdma_connect_msg *msg) {
 	attr.ah_attr.src_path_bits = 0;
 	attr.ah_attr.port_num = 1;
 
-	if (ibv_modify_qp(remote->netarch.rdma_qp, &attr,
+	if (ibv_modify_qp(remote->na.rdma_qp, &attr,
 			  IBV_QP_STATE              |
 			  IBV_QP_AV                 |
 			  IBV_QP_PATH_MTU           |
@@ -168,7 +167,7 @@ void handle_rdma_connect(struct rdma_connect_msg *msg) {
 			  IBV_QP_RQ_PSN             |
 			  IBV_QP_MAX_DEST_RD_ATOMIC |
 			  IBV_QP_MIN_RNR_TIMER)) {
-		ERROR("Failed to rdma modify QP %u to RTR", remote->netarch.rdma_qp->qp_num);
+		ERROR("Failed to rdma modify QP %u to RTR", remote->na.rdma_qp->qp_num);
 		goto error;
 	}
 
@@ -181,30 +180,30 @@ void handle_rdma_connect(struct rdma_connect_msg *msg) {
 	attr.rnr_retry 	    = 7;
 	attr.sq_psn 	    = psn;
 	attr.max_rd_atomic  = 1;
-	if (ibv_modify_qp(remote->netarch.rdma_qp, &attr,
+	if (ibv_modify_qp(remote->na.rdma_qp, &attr,
 			  IBV_QP_STATE              |
 			  IBV_QP_TIMEOUT            |
 			  IBV_QP_RETRY_CNT          |
 			  IBV_QP_RNR_RETRY          |
 			  IBV_QP_SQ_PSN             |
 			  IBV_QP_MAX_QP_RD_ATOMIC)) {
-		ERROR("Failed to modify rdma QP %u to RTS", remote->netarch.rdma_qp->qp_num);
+		ERROR("Failed to modify rdma QP %u to RTS", remote->na.rdma_qp->qp_num);
 		goto error;
 	}
 
-	post_new_recv_buf(remote->netarch.rdma_qp);
+	post_new_recv_buf(remote->na.rdma_qp);
 
 	//all done? Then we're connected now :)
 	remote->state = RIPC_RDMA_ESTABLISHED;
 
 #ifdef HAVE_DEBUG
-	dump_qp_state(remote->netarch.rdma_qp);
+	dump_qp_state(remote->na.rdma_qp);
 #endif
 
 	//now send a reply to let the other side know our details
 reply:
-	msg->lid = context.netarch.lid;
-	msg->qpn = remote->netarch.rdma_qp->qp_num;
+	msg->lid = context.na.lid;
+	msg->qpn = remote->na.rdma_qp->qp_num;
 	msg->psn = psn;
 	//msg->response_qpn = rdma_qp->qp_num;
 	msg->type = RIPC_RDMA_CONN_REPLY;
@@ -224,7 +223,7 @@ reply:
 	wr.send_flags = IBV_SEND_SIGNALED;
 	wr.sg_list = &sge;
 	wr.wr_id = 0xdeadbeef;
-	wr.wr.ud.ah = remote->netarch.ah;
+	wr.wr.ud.ah = remote->na.ah;
 	wr.wr.ud.remote_qkey = 0xffff;
 	wr.wr.ud.remote_qpn = msg->response_qpn;
 
@@ -233,7 +232,7 @@ reply:
     //holding a lock while waiting on the network is BAD(tm)
     pthread_mutex_unlock(&remotes_mutex);
 
-	if (ibv_post_send(unicast_qp, &wr, &bad_wr)) {
+	if (ibv_post_send(unicast_service_id.na.qp, &wr, &bad_wr)) {
 		ERROR("Failed to send connect response to remote %u (qp %u)",
 				msg->src_service_id,
 				msg->response_qpn);
@@ -249,20 +248,20 @@ reply:
 
 	struct ibv_wc wc;
 
-	while ( ! ibv_poll_cq(unicast_send_cq, 1, &wc)) { /* wait */ }
+	while ( ! ibv_poll_cq(unicast_service_id.na.send_cq, 1, &wc)) { /* wait */ }
 
 	//msg is freed in caller!
 	return;
 
     error:
-    if (remote->netarch.rdma_qp)
-    	ibv_destroy_qp(remote->netarch.rdma_qp);
-    if (remote->netarch.rdma_recv_cq)
-    	ibv_destroy_cq(remote->netarch.rdma_recv_cq);
-    if (remote->netarch.rdma_send_cq)
-    	ibv_destroy_cq(remote->netarch.rdma_recv_cq);
-    if (remote->netarch.rdma_cchannel)
-    	ibv_destroy_comp_channel(remote->netarch.rdma_cchannel);
+    if (remote->na.rdma_qp)
+    	ibv_destroy_qp(remote->na.rdma_qp);
+    if (remote->na.rdma_recv_cq)
+    	ibv_destroy_cq(remote->na.rdma_recv_cq);
+    if (remote->na.rdma_send_cq)
+    	ibv_destroy_cq(remote->na.rdma_recv_cq);
+    if (remote->na.rdma_cchannel)
+    	ibv_destroy_comp_channel(remote->na.rdma_cchannel);
     remote->state = RIPC_RDMA_DISCONNECTED;
     pthread_mutex_unlock(&remotes_mutex);
 }
@@ -271,24 +270,15 @@ void *start_responder(void *arg) {
 	DEBUG("Allocating responder state");
 
 	uint32_t i;
-
+        mcast_service_id.number = 0xffff;
+        mcast_service_id.na.init_cchannel = true;
 	//multicast state, to wait for requests
-	alloc_queue_state(
-			&mcast_cchannel,
-			&mcast_send_cq,
-			&mcast_recv_cq,
-			&mcast_qp,
-			0xffff
-			);
+	alloc_queue_state(&mcast_service_id);
 
+        unicast_service_id.number = 0xffff;
+        unicast_service_id.na.init_cchannel = false;
 	//unicast state, to send requests
-	alloc_queue_state(
-			NULL, //no completion channel, as nothing should arrive on this QP
-			&unicast_send_cq,
-			&unicast_recv_cq,
-			&unicast_qp,
-			0xffff
-			);
+	alloc_queue_state(&unicast_service_id);
 
 	//got all my local state, now register for multicast
 	struct mcast_parameters mcg_params;
@@ -297,17 +287,17 @@ void *start_responder(void *arg) {
 	//mcg_params.user_mgid = NULL; //NULL means "default"
 						//			0xde  ad  be  ef  ca  fe
 	mcg_params.user_mgid = "255:1:0:0:222:173:190:239:202:254:0:0:0:0:0:1";
-	set_multicast_gid(&mcg_params, mcast_qp->qp_num, 1);
+	set_multicast_gid(&mcg_params, mcast_service_id.na.qp->qp_num, 1);
 
-	if (ibv_query_gid(context.netarch.device_context, 1, 0, &mcg_params.port_gid)) {
+	if (ibv_query_gid(context.na.device_context, 1, 0, &mcg_params.port_gid)) {
 			return NULL;
 	}
 
-	if (ibv_query_pkey(context.netarch.device_context, 1, DEF_PKEY_IDX, &mcg_params.pkey)) {
+	if (ibv_query_pkey(context.na.device_context, 1, DEF_PKEY_IDX, &mcg_params.pkey)) {
 		return NULL;
 	}
 
-	if (ibv_query_port(context.netarch.device_context, 1, &port_attr)) {
+	if (ibv_query_port(context.na.device_context, 1, &port_attr)) {
 		return NULL;
 	}
 	mcg_params.ib_devname = NULL;
@@ -339,7 +329,7 @@ void *start_responder(void *arg) {
 	 * its LID.
 	 */
 	int ret;
-	if (ret =/*=*/ ibv_attach_mcast(mcast_qp,&mcg_params.mgid,mcg_params.mlid)) {
+	if (ret =/*=*/ ibv_attach_mcast(mcast_service_id.na.qp,&mcg_params.mgid,mcg_params.mlid)) {
 		ERROR("Couldn't attach QP to MultiCast group (%s)", strerror(ret));
 		return NULL;
 	}
@@ -357,7 +347,7 @@ void *start_responder(void *arg) {
 	ah_attr.grh.hop_limit = 1;
 	ah_attr.src_path_bits = 0;
 
-	mcast_ah = ibv_create_ah(context.netarch.pd, &ah_attr);
+	mcast_ah = ibv_create_ah(context.na.pd, &ah_attr);
 
 	if (!mcast_ah) {
 		ERROR("Failed to create resolver address handle");
@@ -381,10 +371,10 @@ void *start_responder(void *arg) {
 	//prepare a response as far as possible
 	resp_mr = ripc_alloc_recv_buf(sizeof(struct resolver_msg));
 	response = (struct resolver_msg *)resp_mr->addr;
-	response->lid = context.netarch.lid;
+	response->lid = context.na.lid;
 	response->type = RIPC_MSG_RESOLVE_REPLY;
-	response->resolver_qpn = mcast_qp->qp_num;
-	response->response_qpn = unicast_qp->qp_num;
+	response->resolver_qpn = mcast_service_id.na.qp->qp_num;
+	response->response_qpn = unicast_service_id.na.qp->qp_num;
 
 	resp_sge.addr = (uint64_t)response;
 	resp_sge.length = sizeof(struct resolver_msg);
@@ -402,9 +392,9 @@ void *start_responder(void *arg) {
 
 	while(true) {
 		do {
-			ibv_get_cq_event(mcast_cchannel, &recvd_on, &cq_context);
+			ibv_get_cq_event(mcast_service_id.na.cchannel, &recvd_on, &cq_context);
 
-			assert(recvd_on == mcast_recv_cq);
+			assert(recvd_on == mcast_service_id.na.recv_cq);
 
 			ibv_ack_cq_events(recvd_on, 1);
 			ibv_req_notify_cq(recvd_on, 0);
@@ -421,7 +411,7 @@ void *start_responder(void *arg) {
 				msg->response_qpn
 				);
 
-		post_new_recv_buf(mcast_qp);
+		post_new_recv_buf(mcast_service_id.na.qp);
 
 		if (msg->type == RIPC_RDMA_CONN_REQ) {
 			handle_rdma_connect((struct rdma_connect_msg *)msg);
@@ -455,7 +445,7 @@ void *start_responder(void *arg) {
 			DEBUG("Message is for me :)");
 
 			response->service_qpn =
-					context.services[msg->dest_service_id]->netarch.qp->qp_num;
+					context.services[msg->dest_service_id]->na.qp->qp_num;
 
 			pthread_mutex_unlock(&services_mutex);
 
@@ -465,10 +455,10 @@ void *start_responder(void *arg) {
 
 			ah_attr.dlid = msg->lid;
 			ah_attr.port_num = 1;
-			resp_wr.wr.ud.ah = ibv_create_ah(context.netarch.pd, &ah_attr);
+			resp_wr.wr.ud.ah = ibv_create_ah(context.na.pd, &ah_attr);
 			resp_wr.wr.ud.remote_qpn = msg->response_qpn;
 
-			ibv_post_send(unicast_qp, &resp_wr, &bad_send_wr);
+			ibv_post_send(unicast_service_id.na.qp, &resp_wr, &bad_send_wr);
 			DEBUG("Sent reply");
 		} else
 			pthread_mutex_unlock(&services_mutex);
@@ -491,33 +481,33 @@ void *start_responder(void *arg) {
 		if ((context.remotes[msg->src_service_id]->qp_num != msg->service_qpn) ||
 				(context.remotes[msg->src_service_id]->resolver_qp != msg->resolver_qpn)) {
 
-			if (context.remotes[msg->src_service_id]->netarch.ah) {
-				ibv_destroy_ah(context.remotes[msg->src_service_id]->netarch.ah);
-				context.remotes[msg->src_service_id]->netarch.ah = NULL;
+			if (context.remotes[msg->src_service_id]->na.ah) {
+				ibv_destroy_ah(context.remotes[msg->src_service_id]->na.ah);
+				context.remotes[msg->src_service_id]->na.ah = NULL;
 			}
 
 			ah_attr.dlid = msg->lid;
 			ah_attr.port_num = 1;
 
-			context.remotes[msg->src_service_id]->netarch.ah =
-					ibv_create_ah(context.netarch.pd, &ah_attr);
+			context.remotes[msg->src_service_id]->na.ah =
+					ibv_create_ah(context.na.pd, &ah_attr);
 			context.remotes[msg->src_service_id]->qp_num = msg->service_qpn;
 			context.remotes[msg->src_service_id]->resolver_qp = msg->resolver_qpn;
 			context.remotes[msg->src_service_id]->state = RIPC_RDMA_DISCONNECTED;
 
-			if (context.remotes[msg->src_service_id]->netarch.rdma_qp) {
-				ibv_destroy_qp(context.remotes[msg->src_service_id]->netarch.rdma_qp);
-				context.remotes[msg->src_service_id]->netarch.rdma_qp = NULL;
+			if (context.remotes[msg->src_service_id]->na.rdma_qp) {
+				ibv_destroy_qp(context.remotes[msg->src_service_id]->na.rdma_qp);
+				context.remotes[msg->src_service_id]->na.rdma_qp = NULL;
 			}
 
-			if (context.remotes[msg->src_service_id]->netarch.rdma_send_cq) {
-				ibv_destroy_cq(context.remotes[msg->src_service_id]->netarch.rdma_send_cq);
-				context.remotes[msg->src_service_id]->netarch.rdma_send_cq = NULL;
+			if (context.remotes[msg->src_service_id]->na.rdma_send_cq) {
+				ibv_destroy_cq(context.remotes[msg->src_service_id]->na.rdma_send_cq);
+				context.remotes[msg->src_service_id]->na.rdma_send_cq = NULL;
 			}
 
-			if (context.remotes[msg->src_service_id]->netarch.rdma_recv_cq) {
-				ibv_destroy_cq(context.remotes[msg->src_service_id]->netarch.rdma_recv_cq);
-				context.remotes[msg->src_service_id]->netarch.rdma_recv_cq = NULL;
+			if (context.remotes[msg->src_service_id]->na.rdma_recv_cq) {
+				ibv_destroy_cq(context.remotes[msg->src_service_id]->na.rdma_recv_cq);
+				context.remotes[msg->src_service_id]->na.rdma_recv_cq = NULL;
 			}
 		}
 
@@ -528,7 +518,7 @@ void *start_responder(void *arg) {
 		 * Finally, poll for the send completion if necessary
 		 */
 		if (for_us) {
-			while (!ibv_poll_cq(unicast_send_cq, 1, &wc)) { /* wait */ }
+			while (!ibv_poll_cq(unicast_service_id.na.send_cq, 1, &wc)) { /* wait */ }
 			DEBUG("Got send completion, result: %u", wc.status);
 
 			//we won't be needing the response ah for a while
@@ -543,20 +533,20 @@ void *start_responder(void *arg) {
 	return NULL;
 
 	error:
-	if (mcast_qp)
-		ibv_destroy_qp(mcast_qp);
-	if (mcast_recv_cq)
-		ibv_destroy_cq(mcast_recv_cq);
-	if (mcast_send_cq)
-		ibv_destroy_cq(mcast_send_cq);
-	if (mcast_cchannel)
-		ibv_destroy_comp_channel(mcast_cchannel);
-	if (unicast_qp)
-		ibv_destroy_qp(unicast_qp);
-	if (unicast_recv_cq)
-		ibv_destroy_cq(unicast_recv_cq);
-	if (unicast_send_cq)
-		ibv_destroy_cq(unicast_send_cq);
+	if (mcast_service_id.na.qp)
+		ibv_destroy_qp(mcast_service_id.na.qp);
+	if (mcast_service_id.na.recv_cq)
+		ibv_destroy_cq(mcast_service_id.na.recv_cq);
+	if (mcast_service_id.na.send_cq)
+		ibv_destroy_cq(mcast_service_id.na.send_cq);
+	if (mcast_service_id.na.cchannel)
+		ibv_destroy_comp_channel(mcast_service_id.na.cchannel);
+	if (unicast_service_id.na.qp)
+		ibv_destroy_qp(unicast_service_id.na.qp);
+	if (unicast_service_id.na.recv_cq)
+		ibv_destroy_cq(unicast_service_id.na.recv_cq);
+	if (unicast_service_id.na.send_cq)
+		ibv_destroy_cq(unicast_service_id.na.send_cq);
 	if (mcast_ah)
 		ibv_destroy_ah(mcast_ah);
 
@@ -595,12 +585,12 @@ void resolve(uint16_t src, uint16_t dest) {
 	req_msg->type = RIPC_MSG_RESOLVE_REQ;
 	req_msg->dest_service_id = dest;
 	req_msg->src_service_id = src;
-	req_msg->lid = context.netarch.lid;
+	req_msg->lid = context.na.lid;
 	pthread_mutex_lock(&services_mutex);
-	req_msg->service_qpn = context.services[src]->netarch.qp->qp_num;
+	req_msg->service_qpn = context.services[src]->na.qp->qp_num;
 	pthread_mutex_unlock(&services_mutex);
-	req_msg->response_qpn = unicast_qp->qp_num;
-	req_msg->resolver_qpn = mcast_qp->qp_num;
+	req_msg->response_qpn = unicast_service_id.na.qp->qp_num;
+	req_msg->resolver_qpn = mcast_service_id.na.qp->qp_num;
 
 	sge.addr = (uint64_t)req_msg;
 	sge.length = sizeof(struct resolver_msg);
@@ -629,11 +619,11 @@ void resolve(uint16_t src, uint16_t dest) {
 	pthread_mutex_lock(&resolver_mutex);
 	retry:
 	DEBUG("About to actually post multicast send request");
-	ibv_post_send(mcast_qp, &wr, &bad_wr);
+	ibv_post_send(mcast_service_id.na.qp, &wr, &bad_wr);
 
 	DEBUG("Posted multicast send request");
 
-	while ( ! ibv_poll_cq(mcast_send_cq, 1, &wc)) { /* wait */ }
+	while ( ! ibv_poll_cq(mcast_service_id.na.send_cq, 1, &wc)) { /* wait */ }
 
 	DEBUG("Got multicast send completion");
 
@@ -646,19 +636,19 @@ void resolve(uint16_t src, uint16_t dest) {
 			);
 
 	DEBUG("Successfully sent multicast request, now waiting for reply on qp %u",
-			unicast_qp->qp_num);
+			unicast_service_id.na.qp->qp_num);
 
 	/*
 	 * Processing of the request shouldn't take long, so we just spin.
 	 * TODO: Implement some sort of timeout!
 	 */
 	i = 0;
-	while ( ! ibv_poll_cq(unicast_recv_cq, 1, &wc)) {
+	while ( ! ibv_poll_cq(unicast_service_id.na.recv_cq, 1, &wc)) {
 		if (i++ > 100000000)
 			goto retry;
 	}
 
-	post_new_recv_buf(unicast_qp);
+	post_new_recv_buf(unicast_service_id.na.qp);
 
 	resp_wr = (struct ibv_recv_wr *)wc.wr_id;
 	msg = (struct resolver_msg *)(resp_wr->sg_list->addr + 40);
@@ -687,7 +677,7 @@ void resolve(uint16_t src, uint16_t dest) {
 	 //got the info we wanted, now feed it to the cache
 	ah_attr.dlid = msg->lid;
 	ah_attr.port_num = 1;
-	tmp_ah = ibv_create_ah(context.netarch.pd, &ah_attr);
+	tmp_ah = ibv_create_ah(context.na.pd, &ah_attr);
 
 	pthread_mutex_lock(&remotes_mutex);
 
@@ -696,7 +686,7 @@ void resolve(uint16_t src, uint16_t dest) {
 		memset(context.remotes[dest], 0, sizeof(struct remote_context));
 		context.remotes[dest]->state = RIPC_RDMA_DISCONNECTED;
 	}
-	context.remotes[dest]->netarch.ah = tmp_ah;
+	context.remotes[dest]->na.ah = tmp_ah;
 	context.remotes[dest]->qp_num = msg->service_qpn;
 	context.remotes[dest]->resolver_qp = msg->resolver_qpn;
 

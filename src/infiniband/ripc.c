@@ -10,6 +10,9 @@
 #include <resolver.h>
 
 uint8_t netarch_init(void) {
+    
+    	context.na.device_context = NULL;
+        
 	struct ibv_device **sys_devices = ibv_get_device_list(NULL);
 	if (!sys_devices) {
 		panic("Failed to get device list: %s", strerror(errno));
@@ -27,25 +30,25 @@ uint8_t netarch_init(void) {
 					ibv_get_device_name(*sys_devices));
 			sys_devices++;
 		} else {
-			context.netarch.device_context = device_context;
+			context.na.device_context = device_context;
 			DEBUG("Successfully opened %s", ibv_get_device_name(*sys_devices));
 			break;
 		}
 	}
 
-	if (context.netarch.device_context == NULL) {
+	if (context.na.device_context == NULL) {
 		panic("No more devices available!");
 	}
 
-	context.netarch.pd = ibv_alloc_pd(context.netarch.device_context);
-	if (context.netarch.pd == NULL) {
+	context.na.pd = ibv_alloc_pd(context.na.device_context);
+	if (context.na.pd == NULL) {
 		panic("Failed to allocate protection domain!");
 	} else {
-		DEBUG("Allocated protection domain: %u", context.netarch.pd->handle);
+		DEBUG("Allocated protection domain: %u", context.na.pd->handle);
 	}
 
 	struct ibv_device_attr device_attr;
-	ibv_query_device(context.netarch.device_context,&device_attr);
+	ibv_query_device(context.na.device_context,&device_attr);
 	DEBUG("Device %s has %d physical ports",
 			ibv_get_device_name(*sys_devices),
 			device_attr.phys_port_cnt);
@@ -60,70 +63,22 @@ uint8_t netarch_init(void) {
 	struct ibv_port_attr port_attr;
 	union ibv_gid gid;
 	for (i = 0; i < device_attr.phys_port_cnt; ++i) {
-		ibv_query_port(context.netarch.device_context,i,&port_attr);
+		ibv_query_port(context.na.device_context,i,&port_attr);
 		DEBUG("Port %d: Found LID %u", i, port_attr.lid);
 		DEBUG("Port %d has %d GIDs", i, port_attr.gid_tbl_len);
 		DEBUG("Port %d's maximum message size is %u", i, port_attr.max_msg_sz);
-		context.netarch.lid = port_attr.lid;
+		context.na.lid = port_attr.lid;
 	}
 
+        rdma_service_id.na.init_cchannel = false;
+        rdma_service_id.number = 0xffff;
+        //queues for sending connection requests
+	alloc_queue_state(&rdma_service_id);
 
-	alloc_queue_state( //queues for sending connection requests
-			NULL,
-			&rdma_send_cq,
-			&rdma_recv_cq,
-			&rdma_qp,
-			0xffff
-			);
-
+        context.initialized = true;
+        return 0;
 }
 
-uint16_t ripc_register_random_service_id(void) {
-
-	init();
-
-	uint16_t service_id;
-
-	do { //try to find a free service id
-		service_id = rand() % UINT16_MAX;
-	} while (ripc_register_service_id(service_id) == false);
-
-	return service_id;
-}
-
-uint8_t ripc_register_service_id(int service_id) {
-
-	init();
-	DEBUG("Allocating service ID %u", service_id);
-
-	struct service_id *service_context;
-	uint32_t i;
-
-	pthread_mutex_lock(&services_mutex);
-
-	if (context.services[service_id] != NULL) {
-		pthread_mutex_unlock(&services_mutex);
-		return false; //already allocated
-	}
-
-	context.services[service_id] =
-		(struct service_id *)malloc(sizeof(struct service_id));
-	memset(context.services[service_id],0,sizeof(struct service_id));
-	service_context = context.services[service_id];
-
-	service_context->number = service_id;
-
-	alloc_queue_state(
-			&service_context->netarch.cchannel,
-			&service_context->netarch.send_cq,
-			&service_context->netarch.recv_cq,
-			&service_context->netarch.qp,
-			service_id
-			);
-
-	pthread_mutex_unlock(&services_mutex);
-	return true;
-}
 
 uint8_t
 ripc_send_short(
@@ -302,7 +257,7 @@ ripc_send_short(
 	wr.wr_id = 0xdeadbeef; //TODO: Make this a counter?
 	wr.wr.ud.remote_qkey = (uint32_t)dest;
 	pthread_mutex_lock(&remotes_mutex);
-	wr.wr.ud.ah = context.remotes[dest]->netarch.ah;
+	wr.wr.ud.ah = context.remotes[dest]->na.ah;
 	wr.wr.ud.remote_qpn = context.remotes[dest]->qp_num;
 	pthread_mutex_unlock(&remotes_mutex);
 	wr.send_flags = IBV_SEND_SIGNALED;
@@ -324,8 +279,8 @@ ripc_send_short(
 	struct ibv_send_wr *bad_wr = NULL;
 
 	pthread_mutex_lock(&services_mutex);
-	struct ibv_qp *dest_qp = context.services[src]->netarch.qp;
-	struct ibv_cq *dest_cq = context.services[src]->netarch.send_cq;
+	struct ibv_qp *dest_qp = context.services[src]->na.qp;
+	struct ibv_cq *dest_cq = context.services[src]->na.send_cq;
 	pthread_mutex_unlock(&services_mutex);
 
 	int ret = ibv_post_send(dest_qp, &wr, &bad_wr);
@@ -476,9 +431,9 @@ ripc_send_long(
 		struct ibv_cq *rdma_cq, *tmp_cq;
 		struct ibv_comp_channel *rdma_cchannel;
 		pthread_mutex_lock(&remotes_mutex);
-		rdma_qp = context.remotes[dest]->netarch.rdma_qp;
-		rdma_cq = context.remotes[dest]->netarch.rdma_send_cq;
-		rdma_cchannel = context.remotes[dest]->netarch.rdma_cchannel;
+		rdma_qp = context.remotes[dest]->na.rdma_qp;
+		rdma_cq = context.remotes[dest]->na.rdma_send_cq;
+		rdma_cchannel = context.remotes[dest]->na.rdma_cchannel;
 		pthread_mutex_unlock(&remotes_mutex);
 
 		if (ibv_post_send(
@@ -508,7 +463,7 @@ ripc_send_long(
 		DEBUG("received completion message!");
 		if (rdma_wc.status) {
 			ERROR("Send result: %d", rdma_wc.status);
-			ERROR("QP state: %d", context.remotes[dest]->netarch.rdma_qp->state);
+			ERROR("QP state: %d", context.remotes[dest]->na.rdma_qp->state);
 			free(return_mr);
 			goto retry; //return buffer was invalid, but maybe the next one will do
 		} else {
@@ -588,7 +543,7 @@ ripc_send_long(
 	wr.wr_id = 0xdeadbeef;
 
 	pthread_mutex_lock(&remotes_mutex);
-	wr.wr.ud.ah = context.remotes[dest]->netarch.ah;
+	wr.wr.ud.ah = context.remotes[dest]->na.ah;
 	wr.wr.ud.remote_qpn = context.remotes[dest]->qp_num;
 	pthread_mutex_unlock(&remotes_mutex);
 	wr.wr.ud.remote_qkey = dest;
@@ -596,8 +551,8 @@ ripc_send_long(
 	struct ibv_send_wr *bad_wr = NULL;
 
 	pthread_mutex_lock(&services_mutex);
-	struct ibv_qp *dest_qp = context.services[src]->netarch.qp;
-	struct ibv_cq *dest_cq = context.services[src]->netarch.send_cq;
+	struct ibv_qp *dest_qp = context.services[src]->na.qp;
+	struct ibv_cq *dest_cq = context.services[src]->na.send_cq;
 	pthread_mutex_unlock(&services_mutex);
 
 	int ret = ibv_post_send(dest_qp, &wr, &bad_wr);
@@ -645,9 +600,9 @@ ripc_receive(
 
 	pthread_mutex_lock(&services_mutex);
 
-	cchannel = context.services[service_id]->netarch.cchannel;
-	recv_cq = context.services[service_id]->netarch.recv_cq;
-	qp = context.services[service_id]->netarch.qp;
+	cchannel = context.services[service_id]->na.cchannel;
+	recv_cq = context.services[service_id]->na.recv_cq;
+	qp = context.services[service_id]->na.qp;
 
 	pthread_mutex_unlock(&services_mutex);
 
@@ -685,7 +640,7 @@ ripc_receive(
 	pthread_mutex_lock(&remotes_mutex);
 
 	if (( ! context.remotes[hdr->from]) ||
-			( ! context.remotes[hdr->from]->netarch.ah)) {
+			( ! context.remotes[hdr->from]->na.ah)) {
 		DEBUG("Caching remote address handle for remote %u", hdr->from);
 
 		if ( ! context.remotes[hdr->from])
@@ -693,8 +648,8 @@ ripc_receive(
 
 		assert(context.remotes[hdr->from]);
 
-		context.remotes[hdr->from]->netarch.ah =
-				ibv_create_ah_from_wc(context.netarch.pd, &wc, NULL, 1);
+		context.remotes[hdr->from]->na.ah =
+				ibv_create_ah_from_wc(context.na.pd, &wc, NULL, 1);
 
 		//not conditional as we assume when the ah needs updating, so does the qp number
 		context.remotes[hdr->from]->qp_num = wc.src_qp;
@@ -797,9 +752,9 @@ ripc_receive(
 		struct ibv_cq *rdma_cq, *tmp_cq;
 		struct ibv_comp_channel *rdma_cchannel;
 		pthread_mutex_lock(&remotes_mutex);
-		rdma_qp = context.remotes[hdr->from]->netarch.rdma_qp;
-		rdma_cq = context.remotes[hdr->from]->netarch.rdma_send_cq;
-		rdma_cchannel = context.remotes[hdr->from]->netarch.rdma_cchannel;
+		rdma_qp = context.remotes[hdr->from]->na.rdma_qp;
+		rdma_cq = context.remotes[hdr->from]->na.rdma_send_cq;
+		rdma_cchannel = context.remotes[hdr->from]->na.rdma_cchannel;
 		pthread_mutex_unlock(&remotes_mutex);
 
 		if (ibv_post_send(
@@ -828,7 +783,7 @@ ripc_receive(
 		DEBUG("received completion message!");
 		if (rdma_wc.status) {
 			ERROR("Send result: %d", rdma_wc.status);
-			ERROR("QP state: %d", context.remotes[hdr->from]->netarch.rdma_qp->state);
+			ERROR("QP state: %d", context.remotes[hdr->from]->na.rdma_qp->state);
 		} else {
 			DEBUG("Result: %d", rdma_wc.status);
 		}

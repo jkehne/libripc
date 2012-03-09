@@ -24,5 +24,8 @@ struct rdma_connect_msg {
        uint32_t response_qpn;
 };
 extern pthread_mutex_t rdma_connect_mutex;
+extern struct service_id rdma_service_id;
+
+void alloc_queue_state(struct service_id *service_id);
 
 #endif /* RESOURCES_H_ */

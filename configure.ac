@@ -78,7 +78,7 @@ case $NETARCH in
         AC_DEFINE([NETARCH_BGP], [1], [Enable BG/P network architecture])
         ;;      
   local)
-        AC_DEFINE([NETARCH_BGP], [1], [Enable local network (UNIX pipe)])
+        AC_DEFINE([NETARCH_LOCAL], [1], [Enable local network (UNIX pipe)])
         ;;      
   *)
 	AC_MSG_ERROR([Unknown network architecture: $NETARCH.

@@ -1,32 +1,6 @@
 #ifndef COMMON_H_
 #define COMMON_H_
 
-#include "config.h"
-#include <assert.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <pthread.h>
-#ifdef NETARCH_INFINIBAND
-#include <infiniband/common.h>
-#endif
-#ifdef NETARCH_BGP
-#include <bgp/common.h>
-#endif
-#ifdef ENABLE_LOCAL
-#include <local/common.h>
-#endif
-
-#include "memory.h"
-#define ERROR(...) fprintf(stderr, "Thread %d: %s() (%s, line %u): ", (int) pthread_self(), __PRETTY_FUNCTION__, __FILE__, __LINE__); fprintf(stderr, __VA_ARGS__); fprintf(stderr,"\n")
-#define panic(...) fprintf(stderr, "Thread %d: %s() (%s, line %u): FATAL: ", (int) pthread_self(), __PRETTY_FUNCTION__, __FILE__, __LINE__); fprintf(stderr, __VA_ARGS__); fprintf(stderr,"\n"); exit(EXIT_FAILURE)
-
-#ifdef HAVE_DEBUG
-#define DEBUG(...) ERROR(__VA_ARGS__)
-#else
-#define DEBUG(...)
-#endif
-
 #ifdef HAVE_STDBOOL_H
 # include <stdbool.h>
 #else
@@ -42,6 +16,34 @@ typedef bool _Bool;
 # define true 1
 # define __bool_true_false_are_defined 1
 #endif
+
+#include "config.h"
+#include <assert.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include <pthread.h>
+#ifdef NETARCH_INFINIBAND
+#include <infiniband/common.h>
+#endif
+#ifdef NETARCH_BGP
+#include <bgp/common.h>
+#endif
+#ifdef NETARCH_LOCAL
+#include <local/common.h>
+#endif
+
+#include "memory.h"
+
+#define ERROR(...) fprintf(stderr, "Thread %d: %s() (%s, line %u): ", (int) pthread_self(), __PRETTY_FUNCTION__, __FILE__, __LINE__); fprintf(stderr, __VA_ARGS__); fprintf(stderr,"\n")
+#define panic(...) fprintf(stderr, "Thread %d: %s() (%s, line %u): FATAL: ", (int) pthread_self(), __PRETTY_FUNCTION__, __FILE__, __LINE__); fprintf(stderr, __VA_ARGS__); fprintf(stderr,"\n"); exit(EXIT_FAILURE)
+
+#ifdef HAVE_DEBUG
+#define DEBUG(...) ERROR(__VA_ARGS__)
+#else
+#define DEBUG(...)
+#endif
+
 
 enum msg_type {
        RIPC_MSG_SEND = 0xdeadbeef,
@@ -61,7 +63,7 @@ enum conn_state {
 
 struct service_id {
 	uint16_t number;
-        struct netarch_service_id netarch;
+        struct netarch_service_id na;
 };
 
 struct remote_context {
@@ -69,11 +71,12 @@ struct remote_context {
 	struct mem_buf_list *return_bufs;
 	uint32_t resolver_qp;
 	uint32_t qp_num;
-	struct netarch_remote_context netarch;
+	struct netarch_remote_context na;
 };
 
 struct library_context {
-	struct netarch_library_context netarch;
+        bool initialized;
+	struct netarch_library_context na;
 	struct service_id *services[UINT16_MAX];
 	struct remote_context *remotes[UINT16_MAX];
 };
