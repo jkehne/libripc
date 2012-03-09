@@ -7,11 +7,14 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <pthread.h>
-#ifdef ENABLE_INFINIBAND
+#ifdef NETARCH_INFINIBAND
 #include <infiniband/common.h>
 #endif
-#ifdef ENABLE_BGP
+#ifdef NETARCH_BGP
 #include <bgp/common.h>
+#endif
+#ifdef ENABLE_LOCAL
+#include <local/common.h>
 #endif
 
 #include "memory.h"

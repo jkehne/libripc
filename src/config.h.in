@@ -1,11 +1,5 @@
 /* src/config.h.in.  Generated from configure.ac by autoheader.  */
 
-/* Enable BG/P network architecture */
-#undef ENABLE_BGP
-
-/* Enable InfiniBand network architecture */
-#undef ENABLE_INFINIBAND
-
 /* Define to 1 if debug output should be enabled. */
 #undef HAVE_DEBUG
 
@@ -67,6 +61,12 @@
 
 /* Define to 1 if assertions should be disabled. */
 #undef NDEBUG
+
+/* Enable local network (UNIX pipe) */
+#undef NETARCH_BGP
+
+/* Enable InfiniBand network architecture */
+#undef NETARCH_INFINIBAND
 
 /* Name of package */
 #undef PACKAGE

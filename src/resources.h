@@ -4,11 +4,14 @@
 #include <config.h>
 #include <common.h>
 #include <ripc.h>
-#ifdef ENABLE_INFINIBAND
+#ifdef NETARCH_INFINIBAND
 #include <infiniband/resources.h>
 #endif
-#ifdef ENABLE_BGP
+#ifdef NETARCH_BGP
 #include <bgp/resources.h>
+#endif 
+#ifdef NETARCH_LOCAL
+#include <local/resources.h>
 #endif 
 
 struct rdma_connect_msg {

@@ -33,7 +33,7 @@ void recv_window_list_add(struct ibv_mr *item, void *base, size_t size);
 struct ibv_mr *return_buf_list_get(uint16_t remote, size_t size);
 void return_buf_list_add(uint16_t remote, struct ibv_mr *item);
 
-#ifdef ENABLE_INFINIBAND
+#ifdef NETARCH_INFINIBAND
 void post_new_recv_buf(struct ibv_qp *qp);
 #endif
 

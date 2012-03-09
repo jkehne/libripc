@@ -43,6 +43,7 @@ AC_ARG_WITH(netarch,
     [ case "$withval" in
           infiniband) NETARCH=infiniband ;;
           bgp) NETARCH=bgp ;;
+          local) NETARCH=local ;;
           *) AC_MSG_ERROR(bad value $withval for --enable-netarch) ;; 
        esac
     ]
@@ -52,7 +53,7 @@ AC_ARG_WITH(netarch,
 dnl InfiniBand Checks
 case $NETARCH in
   infiniband)
-        AC_DEFINE([ENABLE_INFINIBAND], [1], [Enable InfiniBand network architecture])
+        AC_DEFINE([NETARCH_INFINIBAND], [1], [Enable InfiniBand network architecture])
         AC_CHECK_LIB([ibverbs],[ibv_get_device_list],[],[
                 echo "Error: Libibverbs not found!"
                 exit -1
@@ -74,7 +75,10 @@ case $NETARCH in
 	-])
         ;;
   bgp)
-        AC_DEFINE([ENABLE_BGP], [1], [Enable BG/P network architecture])
+        AC_DEFINE([NETARCH_BGP], [1], [Enable BG/P network architecture])
+        ;;      
+  local)
+        AC_DEFINE([NETARCH_BGP], [1], [Enable local network (UNIX pipe)])
         ;;      
   *)
 	AC_MSG_ERROR([Unknown network architecture: $NETARCH.
@@ -88,8 +92,9 @@ AC_CHECK_LIB([pthread],[pthread_create],[],[
 ])
 
 
-AM_CONDITIONAL([ENABLE_INFINIBAND], [ test $NETARCH = infiniband ])
-AM_CONDITIONAL([ENABLE_BGP], [ test $NETARCH = bgp ])
+AM_CONDITIONAL([NETARCH_INFINIBAND], [ test $NETARCH = infiniband ])
+AM_CONDITIONAL([NETARCH_BGP], [ test $NETARCH = bgp ])
+AM_CONDITIONAL([NETARCH_LOCAL], [ test $NETARCH = local ])
 
 AC_HEADER_STDC
 AC_HEADER_STDBOOL
@@ -107,6 +112,6 @@ AS_IF([test "x$enable_debug" = "xyes"], [AC_DEFINE([HAVE_DEBUG], [1], [Define to
 AS_IF([test "x$enable_debug" = "xyes"], [CFLAGS="-O0 -ggdb3"])
 
 AC_CONFIG_HEADERS([src/config.h clients/config.h])
-AC_CONFIG_FILES(Makefile src/Makefile clients/Makefile src/infiniband/Makefile src/bgp/Makefile)
+AC_CONFIG_FILES(Makefile src/Makefile clients/Makefile src/infiniband/Makefile src/bgp/Makefile src/local/Makefile)
 AC_OUTPUT
 
