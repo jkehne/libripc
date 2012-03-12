@@ -271,12 +271,12 @@ void *start_responder(void *arg) {
 
 	uint32_t i;
         mcast_service_id.number = 0xffff;
-        mcast_service_id.na.init_cchannel = true;
+        unicast_service_id.na.no_cchannel = false;
 	//multicast state, to wait for requests
 	alloc_queue_state(&mcast_service_id);
 
         unicast_service_id.number = 0xffff;
-        unicast_service_id.na.init_cchannel = false;
+        unicast_service_id.na.no_cchannel = true;
 	//unicast state, to send requests
 	alloc_queue_state(&unicast_service_id);
 

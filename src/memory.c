@@ -133,7 +133,7 @@ struct ibv_mr *free_buf_list_get(size_t size) {
 }
 
 void recv_window_list_add(struct ibv_mr *item, void *base, size_t size) {
-	DEBUG("Registering receive window at address %p, size %u",
+	DEBUG("Registering receive window at address %p, size %zu",
 			base,
 			size);
 
@@ -168,7 +168,7 @@ void *recv_window_list_get(size_t size) {
 
 	while(ptr) {
 		size_t ptr_size = ptr->size;
-		DEBUG("Checking window list entry: entry size: %u, requested size: %u",
+		DEBUG("Checking window list entry: entry size: %zu, requested size: %zu",
 				ptr_size,
 				size);
 		if (ptr_size >= size) {
@@ -248,7 +248,7 @@ struct ibv_mr *ripc_alloc_recv_buf(size_t size) {
 
 	mr = free_buf_list_get(size);
 	if (mr) {
-		DEBUG("Got hit in free list: Buffer at %p, size %u", mr->addr, mr->length);
+		DEBUG("Got hit in free list: Buffer at %p, size %zu", mr->addr, mr->length);
 		used_buf_list_add(mr);
 		memset(mr->addr, 0, mr->length);
 		return mr;
@@ -278,7 +278,7 @@ struct ibv_mr *ripc_alloc_recv_buf(size_t size) {
 			IBV_ACCESS_LOCAL_WRITE |
 			IBV_ACCESS_REMOTE_READ |
 			IBV_ACCESS_REMOTE_WRITE);
-	DEBUG("mr buffer address is %p, size %u", mr->addr, mr->length);
+	DEBUG("mr buffer address is %p, size %zu", mr->addr, mr->length);
 	used_buf_list_add(mr);
 	return mr;
 }
@@ -358,7 +358,7 @@ uint8_t ripc_reg_recv_window(void *base, size_t size) {
 
 	mr = used_buf_list_get(base); //are we registered yet?
 	if (mr) {
-		DEBUG("Found buffer mr: Base address %p, size %u",
+		DEBUG("Found buffer mr: Base address %p, size %zu",
 				mr->addr,
 				mr->length);
 		used_buf_list_add(mr);

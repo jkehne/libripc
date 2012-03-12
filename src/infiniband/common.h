@@ -8,7 +8,7 @@
 #include <infiniband/verbs.h>
 
 struct netarch_service_id {
-        bool init_cchannel;
+        bool no_cchannel;
 	struct ibv_cq *send_cq;
 	struct ibv_cq *recv_cq;
 	struct ibv_qp *qp;

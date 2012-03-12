@@ -71,7 +71,7 @@ void netarch_init(void) {
 		context.na.lid = port_attr.lid;
 	}
 
-        rdma_service_id.na.init_cchannel = false;
+        rdma_service_id.na.no_cchannel = true;
         rdma_service_id.number = 0xffff;
         //queues for sending connection requests
 	alloc_queue_state(&rdma_service_id);
@@ -100,7 +100,7 @@ ripc_send_short(
 	for (i = 0; i < num_items; ++i)
 		total_length += length[i];
 
-	DEBUG("Total length: %u", total_length);
+	DEBUG("Total length: %lu", total_length);
 #if 0
 	if (total_length > (
 			RECV_BUF_SIZE
@@ -158,7 +158,7 @@ ripc_send_short(
 
 	for (i = 0; i < num_items; ++i) {
 
-		DEBUG("First message: offset %#x, length %u", offset, length[i]);
+		DEBUG("First message: offset %#x, length %zu", offset, length[i]);
 		msg[i].offset = offset;
 		msg[i].size = length[i];
 
@@ -191,7 +191,7 @@ ripc_send_short(
 	for (i = 0; i < num_return_bufs; ++i) {
 		if (return_buf_lengths[i] == 0)
 			continue;
-		DEBUG("Found return buffer: address %p, size %u",
+		DEBUG("Found return buffer: address %p, size %zu",
 				return_bufs[i],
 				return_buf_lengths[i]);
 
@@ -209,11 +209,11 @@ ripc_send_short(
 				if (!mr) //registration failed, drop buffer
 					continue;
 				//else
-				DEBUG("Registration successful! rkey is %#lx", mr->rkey);
+				DEBUG("Registration successful! rkey is %#x", mr->rkey);
 				used_buf_list_add(mr);
 
 			} else { //mr was registered
-				DEBUG("Found mr at address %p, size %u, rkey %#lx",
+				DEBUG("Found mr at address %p, size %zu, rkey %#x",
 						mr->addr,
 						mr->length,
 						mr->rkey);
@@ -269,7 +269,7 @@ ripc_send_short(
 			wr.wr.ud.remote_qkey);
 #ifdef HAVE_DEBUG
 	for (i = 0; i < wr.num_sge; ++i) {
-	ERROR("Item %u: address: %p, length %u",
+	ERROR("Item %u: address: %lx, length %u",
 			i,
 			wr.sg_list[i].addr,
 			wr.sg_list[i].length);
@@ -385,7 +385,7 @@ ripc_send_long(
 		msg[i].length = length[i];
 		msg[i].rkey = mr->rkey;
 
-		DEBUG("Long word %u: addr %p, length %u, rkey %#lx",
+		DEBUG("Long word %u: addr %p, length %zu, rkey %#x",
 				i,
 				mr->addr,
 				length[i],
@@ -400,13 +400,13 @@ ripc_send_long(
 		retry:
 		return_mr = return_buf_list_get(dest, length[i]);
 		if (! return_mr) {//no return buffer available
-			DEBUG("Did not find a return buffer for item %u (checked: dest %u, length %u)",
+			DEBUG("Did not find a return buffer for item %u (checked: dest %u, length %zu)",
 					i,
 					dest,
 					length[i]);
 			continue;
 		}
-		DEBUG("Found suitable return buffer: Remote address %p, size %u, rkey %#lx",
+		DEBUG("Found suitable return buffer: Remote address %p, size %zu, rkey %#x",
 				return_mr->addr,
 				return_mr->length,
 				return_mr->rkey);
@@ -479,7 +479,7 @@ ripc_send_long(
 	for (i = 0; i < num_return_bufs; ++i) {
 		if (return_buf_lengths[i] == 0)
 			continue;
-		DEBUG("Found return buffer: address %p, size %u",
+		DEBUG("Found return buffer: address %p, size %zu",
 				return_bufs[i],
 				return_buf_lengths[i]);
 
@@ -497,11 +497,11 @@ ripc_send_long(
 				if (!mr) //registration failed, drop buffer
 					continue;
 				//else
-				DEBUG("Registration successful! rkey is %#lx", mr->rkey);
+				DEBUG("Registration successful! rkey is %#x", mr->rkey);
 				used_buf_list_add(mr);
 
 			} else { //mr was registered
-				DEBUG("Found mr at address %p, size %u, rkey %#lx",
+				DEBUG("Found mr at address %p, size %zu, rkey %#x",
 						mr->addr,
 						mr->length,
 						mr->rkey);
@@ -599,12 +599,13 @@ ripc_receive(
 	uint8_t ret = 0;
 
 	pthread_mutex_lock(&services_mutex);
-
+        
 	cchannel = context.services[service_id]->na.cchannel;
 	recv_cq = context.services[service_id]->na.recv_cq;
 	qp = context.services[service_id]->na.qp;
 
 	pthread_mutex_unlock(&services_mutex);
+	DEBUG("receive cchannel %p service_id %d", cchannel, service_id);
 
 	restart:
 	do {
@@ -688,7 +689,7 @@ ripc_receive(
 	for (i = 0; i < hdr->short_words; ++i) {
 		(*short_items)[i] = (void *)(wr->sg_list->addr + msg[i].offset);
 		(*short_item_sizes)[i] = msg[i].size;
-		DEBUG("Short word %u reads:\n%s", i, (*short_items)[i]);
+		DEBUG("Short word %u reads:\n%s", i, (char *) (*short_items)[i]);
 	}
 
 	if (hdr->long_words) {
@@ -702,7 +703,7 @@ ripc_receive(
 	}
 
 	for (i = 0; i < hdr->long_words; ++i) {
-		DEBUG("Received long item: addr %#lx, length %u, rkey %#lx",
+		DEBUG("Received long item: addr %#lx, length %zu, rkey %#x",
 				long_msg[i].addr,
 				long_msg[i].length,
 				//long_msg[i].qp_num,
@@ -710,7 +711,7 @@ ripc_receive(
 
 		if (long_msg[i].transferred) {
 			//message has been pushed to a return buffer
-			DEBUG("Sender used return buffer at address %p",
+			DEBUG("Sender used return buffer at address %lx",
 					long_msg[i].addr);
 			(*long_items)[i] = (void *)long_msg[i].addr;
 			(*long_item_sizes)[i] = long_msg[i].length;
@@ -728,7 +729,7 @@ ripc_receive(
 		struct ibv_mr *rdma_mr = used_buf_list_get(rdma_addr);
 		used_buf_list_add(rdma_mr);
 
-		DEBUG("Found rdma mr: addr %p, length %u",
+		DEBUG("Found rdma mr: addr %p, length %zu",
 				rdma_mr->addr,
 				rdma_mr->length);
 
@@ -796,7 +797,7 @@ ripc_receive(
 
 	struct ibv_mr *mr;
 	for (i = 0; i < hdr->new_return_bufs; ++i) {
-		DEBUG("Found new return buffer: Address %p, length %u, rkey %#lx",
+		DEBUG("Found new return buffer: Address %lx, length %zu, rkey %#x",
 				return_bufs[i].addr,
 				return_bufs[i].length,
 				return_bufs[i].rkey);

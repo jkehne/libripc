@@ -8,7 +8,7 @@ pthread_mutex_t rdma_connect_mutex;
 void alloc_queue_state(struct service_id *service_id) {
 	uint32_t i;
 
-	if (service_id->na.init_cchannel) { //completion channel is optional
+	if (!service_id->na.no_cchannel) { //completion channel is optional
 		service_id->na.cchannel = 
                         ibv_create_comp_channel(context.na.device_context);
 		if (service_id->na.cchannel == NULL) {
@@ -24,7 +24,7 @@ void alloc_queue_state(struct service_id *service_id) {
                 context.na.device_context,
                 100,
                 NULL,
-                service_id->na.init_cchannel ? service_id->na.cchannel : NULL,
+                service_id->na.no_cchannel ? NULL : service_id->na.cchannel,
                 0);
 	if (service_id->na.recv_cq == NULL) {
 		ERROR("Failed to allocate receive completion queue!");
