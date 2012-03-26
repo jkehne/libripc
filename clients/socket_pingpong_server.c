@@ -64,7 +64,7 @@ int main(void) {
 		//DEBUG("Waiting for message");
 		length = read(conn_sockfd, &payload, PACKET_SIZE);
 		//DEBUG("Received message: %d\n", payload);
-		length = write(conn_sockfd, &payload, PACKET_SIZE);
+		length = write(conn_sockfd, &payload, length);
 	}
 	return EXIT_SUCCESS;
 }

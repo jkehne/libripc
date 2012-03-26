@@ -26,9 +26,10 @@ int main(void) {
 
 	ripc_register_service_id(SERVER_SERVICE_ID);
 	void **short_items = NULL, **long_items = NULL;
-	size_t length[WORDS_PER_PACKET];
-	for (i = 0; i < WORDS_PER_PACKET; ++i)
-		length[i] = PACKET_SIZE;
+//	size_t length[WORDS_PER_PACKET];
+//	for (i = 0; i < WORDS_PER_PACKET; ++i)
+//		length[i] = PACKET_SIZE;
+	sleep(1);
 
 	void *return_buf_array[SERVER_RETURN_BUFFERS];
 	size_t return_buf_length_array[SERVER_RETURN_BUFFERS];
@@ -68,7 +69,7 @@ int main(void) {
 				SERVER_SERVICE_ID,
 				from,
 				short_items,
-				length,
+				(size_t *)short_sizes,
 				num_short,
 				return_buf_array,
 				return_buf_length_array,

@@ -30,8 +30,10 @@ int main(void) {
 	void *return_buf_array[SERVER_RETURN_BUFFERS];
 	size_t return_buf_length_array[SERVER_RETURN_BUFFERS];
 
-	for (i = 0; i < WORDS_PER_PACKET; ++i)
-		length[i] = PACKET_SIZE;
+	sleep(1);
+
+//	for (i = 0; i < WORDS_PER_PACKET; ++i)
+//		length[i] = PACKET_SIZE;
 	int count = 0;
 	uint16_t from, num_short, num_long;
 	uint32_t *short_sizes, *long_sizes;
@@ -77,7 +79,7 @@ int main(void) {
 				SERVER_SERVICE_ID,
 				from,
 				long_items,
-				length,
+				(size_t *)long_sizes,
 				num_long,
 				return_buf_array,
 				return_buf_length_array,

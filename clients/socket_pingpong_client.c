@@ -24,7 +24,7 @@
 #include <netinet/in.h>
 #include "../src/ripc.h"
 
-int main(void) {
+int main(int argc, char *argv[]) {
 	int sockfd;
 	struct sockaddr_in serv_addr;
 	uint32_t i;
@@ -36,8 +36,9 @@ int main(void) {
 
 	//for sending
 	int length;
-	uint8_t payload[PACKET_SIZE];
-	memset(&payload, 0, PACKET_SIZE);
+	uint32_t packet_size = argc > 1 ? atoi(argv[1]) : PACKET_SIZE;
+	uint8_t payload[packet_size];
+	memset(&payload, 0, packet_size);
 
 	//for receiving
 
@@ -50,15 +51,15 @@ int main(void) {
 
 	serv_addr.sin_family = AF_INET;
 	serv_addr.sin_port = htons(12345);
-	serv_addr.sin_addr.s_addr = inet_addr("10.0.0.1");
+	serv_addr.sin_addr.s_addr = inet_addr("192.168.10.67");
 
 	if (connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr))) {
 		panic("Error connecting");
 	}
 
 	for (i = 0; i < NUM_ROUNDS; ++i) {
-		length = write(sockfd, &payload, PACKET_SIZE);
-		length = read(sockfd, &payload, PACKET_SIZE);
+		length = write(sockfd, &payload, packet_size);
+		length = read(sockfd, &payload, packet_size);
 
 		recvd++;
 	}

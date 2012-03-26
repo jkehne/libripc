@@ -21,7 +21,7 @@
 #include "config.h"
 #include "common.h"
 
-int main(void) {
+int main(int argc, char *argv[]) {
 #ifndef CLIENT_SERVICE_ID
 	uint16_t my_service_id = ripc_register_random_service_id();
 #else
@@ -40,6 +40,7 @@ int main(void) {
 	void *return_buf_array[CLIENT_RETURN_BUFFERS];
 	size_t length_array[WORDS_PER_PACKET];
 	size_t return_buf_length_array[CLIENT_RETURN_BUFFERS];
+	uint32_t packet_size = argc > 1 ? atoi(argv[1]) : PACKET_SIZE;
 
 	//for receiving
 	void **short_items = NULL, **long_items = NULL;
@@ -48,23 +49,23 @@ int main(void) {
 
 	gettimeofday(&before, NULL);
 
-	msg_array[0] = ripc_buf_alloc(PACKET_SIZE * WORDS_PER_PACKET);
-	memset(msg_array[0], 0, PACKET_SIZE * WORDS_PER_PACKET);
-	length_array[0] = PACKET_SIZE;
+	msg_array[0] = ripc_buf_alloc(packet_size * WORDS_PER_PACKET);
+	memset(msg_array[0], 0, packet_size * WORDS_PER_PACKET);
+	length_array[0] = packet_size;
 	for (i = 1; i < WORDS_PER_PACKET; ++i) {
-		length_array[i] = PACKET_SIZE;
-		msg_array[i] = msg_array[0] + i * PACKET_SIZE;
+		length_array[i] = packet_size;
+		msg_array[i] = msg_array[0] + i * packet_size;
 	}
 
 	strcpy(msg_array[0], "Hello long world!");
 
-	return_buf_array[0] = ripc_buf_alloc(PACKET_SIZE * CLIENT_RETURN_BUFFERS);
+	return_buf_array[0] = ripc_buf_alloc(packet_size * CLIENT_RETURN_BUFFERS);
 	if (return_buf_array[0]) {
-		memset(return_buf_array[0], 0, PACKET_SIZE * CLIENT_RETURN_BUFFERS);
-		return_buf_length_array[0] = PACKET_SIZE;
+		memset(return_buf_array[0], 0, packet_size * CLIENT_RETURN_BUFFERS);
+		return_buf_length_array[0] = packet_size;
 		for (i = 1; i < CLIENT_RETURN_BUFFERS; ++i) {
-			return_buf_length_array[i] = PACKET_SIZE;
-			return_buf_array[i] = return_buf_array[0] + i * PACKET_SIZE;
+			return_buf_length_array[i] = packet_size;
+			return_buf_array[i] = return_buf_array[0] + i * packet_size;
 		}
 	}
 
@@ -108,5 +109,6 @@ int main(void) {
 	diff = after_usec - before_usec;
 
 	printf("Exchanged %d items in %lu usec (rtt %f usec)\n", recvd, diff, (double)diff / NUM_ROUNDS);
+	//printf("%f\n",(double)diff / NUM_ROUNDS);
 	return EXIT_SUCCESS;
 }
