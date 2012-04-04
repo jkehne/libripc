@@ -407,14 +407,14 @@ void *start_responder(void *arg) {
 	pthread_mutex_unlock(&resolver_mutex); //was locked in dispatch_responder
 
 	while(true) {
-		do {
+		 while ( ibv_poll_cq(mcast_service_id.na.recv_cq, 1, &wc) < 1) {
 			ibv_get_cq_event(mcast_service_id.na.cchannel, &recvd_on, &cq_context);
 
 			assert(recvd_on == mcast_service_id.na.recv_cq);
 
 			ibv_ack_cq_events(recvd_on, 1);
 			ibv_req_notify_cq(recvd_on, 0);
-		} while ( ! ibv_poll_cq(recvd_on, 1, &wc));
+		}
 
 		wr = (struct ibv_recv_wr *) wc.wr_id;
 		msg = (struct resolver_msg *)(wr->sg_list->addr + 40);
