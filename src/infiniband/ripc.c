@@ -625,9 +625,14 @@ ripc_receive(
 
 	restart:
 	do {
-		ibv_get_cq_event(cchannel,
+		if (ibv_get_cq_event(cchannel,
 		&cq,
-		&ctx);
+		&ctx) < 0) {
+			if (errno == EINTR) //interrupted, most likely by a user timeout mechanism
+				return 1;
+			else
+				continue;
+		}
 
 		assert(cq == recv_cq);
 
@@ -789,6 +794,12 @@ ripc_receive(
 			ibv_get_cq_event(rdma_cchannel,
 			&tmp_cq,
 			&ctx);
+			/*
+			 * We don't want to interrupt a running transfer!
+			 * Note that this RDMA operation always generates a completion
+			 * eventually. If it fails, it generates a completion denoting
+			 * the failure.
+			 */
 
 			assert(tmp_cq == rdma_cq);
 
