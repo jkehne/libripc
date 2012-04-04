@@ -624,7 +624,7 @@ ripc_receive(
 	DEBUG("receive cchannel %p service_id %d", cchannel, service_id);
 
 	restart:
-	do {
+	while (!(ibv_poll_cq(recv_cq, 1, &wc))) {
 		if (ibv_get_cq_event(cchannel,
 		&cq,
 		&ctx) < 0) {
@@ -639,7 +639,9 @@ ripc_receive(
 		ibv_ack_cq_events(recv_cq, 1);
 		ibv_req_notify_cq(recv_cq, 0);
 
-	} while (!(ibv_poll_cq(recv_cq, 1, &wc)));
+	}
+
+	alarm(0);
 
 	DEBUG("received!");
 
