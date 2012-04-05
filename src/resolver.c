@@ -633,7 +633,7 @@ void resolve(uint16_t src, uint16_t dest) {
 	 * TODO: Come up with a better solution!
 	 */
 	pthread_mutex_lock(&resolver_mutex);
-	retry:
+retry:
 	DEBUG("About to actually post multicast send request");
 	ibv_post_send(mcast_service_id.na.qp, &wr, &bad_wr);
 
@@ -659,6 +659,7 @@ void resolve(uint16_t src, uint16_t dest) {
 	 * TODO: Implement some sort of timeout!
 	 */
 	i = 0;
+keep_waiting:
 	while ( ! ibv_poll_cq(unicast_service_id.na.recv_cq, 1, &wc)) {
 		if (i++ > 100000000)
 			goto retry;
@@ -683,7 +684,7 @@ void resolve(uint16_t src, uint16_t dest) {
 	if (msg->dest_service_id != dest) {
 		DEBUG("Stale resolver response!");
 		ripc_buf_free(msg);
-		goto retry;
+		goto keep_waiting;
 	}
 
 	pthread_mutex_unlock(&resolver_mutex);

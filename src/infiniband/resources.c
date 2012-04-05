@@ -171,8 +171,11 @@ void create_rdma_connection(uint16_t src, uint16_t dest) {
         * resolve()-calls shouldn't hurt (at least not more than holding the
         * lock until resolve() returns.
         */
-       if (! context.remotes[dest])
-               resolve(src, dest);
+       if (( ! context.remotes[dest])
+    		   || ( ! context.remotes[dest]->na.ah)
+    		   || ( ! context.remotes[dest]->resolver_qp))
+    	   resolve(src, dest);
+
        assert(context.remotes[dest]);
        struct remote_context *remote = context.remotes[dest];
 

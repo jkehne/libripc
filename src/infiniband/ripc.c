@@ -667,8 +667,10 @@ ripc_receive(
 			( ! context.remotes[hdr->from]->na.ah)) {
 		DEBUG("Caching remote address handle for remote %u", hdr->from);
 
-		if ( ! context.remotes[hdr->from])
+		if ( ! context.remotes[hdr->from]) {
 			context.remotes[hdr->from] = malloc(sizeof(struct remote_context));
+			memset(context.remotes[hdr->from], 0, sizeof(struct remote_context));
+		}
 
 		assert(context.remotes[hdr->from]);
 
