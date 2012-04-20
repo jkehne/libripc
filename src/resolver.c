@@ -16,7 +16,6 @@
  */
 #include "resolver.h"
 #include "ripc.h"
-#include "multicast_resources.h"
 #include "resources.h"
 #include "memory.h"
 #include <string.h>
@@ -224,7 +223,7 @@ reply:
 	//msg->response_qpn = rdma_qp->qp_num;
 	msg->type = RIPC_RDMA_CONN_REPLY;
 
-	struct ibv_mr *msg_mr = used_buf_list_get(msg);
+	struct ibv_mr *msg_mr = used_buf_list_get(msg).na;
 	assert(msg_mr);
 
 	struct ibv_sge sge;
@@ -385,7 +384,7 @@ void *start_responder(void *arg) {
 	bool for_us;
 
 	//prepare a response as far as possible
-	resp_mr = ripc_alloc_recv_buf(sizeof(struct resolver_msg));
+	resp_mr = ripc_alloc_recv_buf(sizeof(struct resolver_msg)).na;
 	response = (struct resolver_msg *)resp_mr->addr;
 	response->lid = context.na.lid;
 	response->type = RIPC_MSG_RESOLVE_REPLY;
@@ -585,7 +584,7 @@ void resolve(uint16_t src, uint16_t dest) {
 	struct ibv_ah *tmp_ah;
 	int i;
 
-	buf_mr = ripc_alloc_recv_buf(sizeof(struct resolver_msg));
+	buf_mr = ripc_alloc_recv_buf(sizeof(struct resolver_msg)).na;
 
 	if (!buf_mr) {
 		ERROR("Failed to allocate multicast send mr");

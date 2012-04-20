@@ -14,20 +14,17 @@
  *  You should have received a copy of the GNU Lesser General Public License
  *  along with libRIPC.  If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef RESOURCES_H_
-#include "../resources.h"
+#ifndef MEMORY_H_
+#include "../memory.h"
 #endif
 
-#ifndef __INFINIBAND__RESOURCES_H__
-#define __INFINIBAND__RESOURCES_H__
+#ifndef __INFINIBAND__MEMORY_H__
+#define __INFINIBAND__MEMORY_H__
 
-#include <infiniband/multicast_resources.h>
+typedef struct ibv_mr *netarch_mem_buf_t;
 
-void dump_qp_state(struct ibv_qp *qp);
+#define INVALID_NETARCH_MEM_BUF NULL
 
-void create_rdma_connection(
-               uint16_t src,
-               uint16_t dest
-               );
+void post_new_recv_buf(struct ibv_qp *qp);
 
-#endif /* !__INFINIBAND__RESOURCES_H__ */
+#endif /* !__INFINIBAND__MEMORY_H__ */

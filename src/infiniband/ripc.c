@@ -111,8 +111,8 @@ ripc_send_short(
 
 	uint32_t i;
 	size_t total_length = 0;
-	struct ibv_mr *mr;
-
+        mem_buf_t mem_buf;
+        
 	for (i = 0; i < num_items; ++i)
 		total_length += length[i];
 
@@ -138,10 +138,10 @@ ripc_send_short(
 	//build packet header
 	struct ibv_mr *header_mr =
 			ripc_alloc_recv_buf(
-					sizeof(struct msg_header)
-					+ sizeof(struct short_header) * num_items
-					+ sizeof(struct long_desc) * num_return_bufs
-					);
+                                sizeof(struct msg_header)
+                                + sizeof(struct short_header) * num_items
+                                + sizeof(struct long_desc) * num_return_bufs
+                                ).na;
 	struct msg_header *hdr = (struct msg_header *)header_mr->addr;
 	struct short_header *msg = (struct short_header *)(
 			(uint64_t)hdr
@@ -181,26 +181,26 @@ ripc_send_short(
 		offset += length[i]; //offset of next message item
 
 		//make sure send buffers are registered with the hardware
-		struct ibv_mr *mr = used_buf_list_get(buf[i]);
+                mem_buf_t mem_buf = used_buf_list_get(buf[i]);
 		void *tmp_buf;
 
-		if (!mr) { //not registered yet
+		if (mem_buf.size == -1) { //not registered yet
 			DEBUG("mr not found in cache, creating new one");
-			mr = ripc_alloc_recv_buf(length[i]);
-			tmp_buf = mr->addr;
+			mem_buf = ripc_alloc_recv_buf(length[i]);
+			tmp_buf = mem_buf.na->addr;
 			memcpy(tmp_buf,buf[i],length[i]);
 		} else {
 			DEBUG("Found mr in cache!");
-			used_buf_list_add(mr);
+                        used_buf_list_add(mem_buf);
 			tmp_buf = buf[i];
 		}
 
-		assert(mr);
+		assert(mem_buf.na);
 		//assert(mr->length >= length[i]); //the hardware won't allow it anyway
 
 		sge[i + 1].addr = (uint64_t)tmp_buf;
 		sge[i + 1].length = length[i];
-		sge[i + 1].lkey = mr->lkey;
+		sge[i + 1].lkey = mem_buf.na->lkey;
 	}
 
 	//process new return buffers
@@ -213,32 +213,32 @@ ripc_send_short(
 
 		if (return_bufs[i] == NULL) { //user wants us to allocate a buffer
 			DEBUG("User requested return buffer allocation");
-			mr = ripc_alloc_recv_buf(return_buf_lengths[i]);
+			mem_buf = ripc_alloc_recv_buf(return_buf_lengths[i]);
 
 		} else {
-			mr = used_buf_list_get(return_bufs[i]);
+			mem_buf = used_buf_list_get(return_bufs[i]);                       
 
-			if (!mr) { //not registered, try to register now
+			if (mem_buf.size == -1) { //not registered, try to register now
 				DEBUG("Return buffer not registered, attempting registration");
 				ripc_buf_register(return_bufs[i], return_buf_lengths[i]);
-				mr = used_buf_list_get(return_bufs[i]);
-				if (!mr) //registration failed, drop buffer
+				mem_buf = used_buf_list_get(return_bufs[i]);
+				if (!mem_buf.size == -1) {
+                                        DEBUG("Registration failed, drop buffer");
 					continue;
-				//else
-				DEBUG("Registration successful! rkey is %#x", mr->rkey);
-				used_buf_list_add(mr);
+                                } else {
+                                        DEBUG("Registration successful! rkey is %#x", mem_buf.na->rkey);
+                                        used_buf_list_add(mem_buf);
+                                }
 
 			} else { //mr was registered
-				DEBUG("Found mr at address %p, size %zu, rkey %#x",
-						mr->addr,
-						mr->length,
-						mr->rkey);
+				DEBUG("Found mr at address %lx, size %zu, rkey %#x",
+                                      mem_buf.addr, mem_buf.size, mem_buf.na->rkey);
 				//need to re-add the buffer even if it's too small
-				used_buf_list_add(mr);
+				used_buf_list_add(mem_buf);
 
 				//check if the registered buffer is big enough to hold the return buffer
-				if ((uint64_t)return_bufs[i] + return_buf_lengths[i] >
-						(uint64_t)mr->addr + mr->length) {
+				if ((uint64_t)return_bufs[i] + return_buf_lengths[i] > 
+                                    mem_buf.addr + mem_buf.size) {
 					DEBUG("Buffer is too small, skipping");
 					continue; //if it's too small, discard it
 				}
@@ -249,16 +249,13 @@ ripc_send_short(
 		 * At this point, we should have an mr, and we should know the buffer
 		 * represented by the mr is big enough for our return buffer.
 		 */
-		assert(mr);
-		assert ((uint64_t)return_bufs[i] + return_buf_lengths[i] <=
-				(uint64_t)mr->addr + mr->length);
+		assert(mem_buf.na);
+		assert ((uint64_t)return_bufs[i] + return_buf_lengths[i] <= mem_buf.addr + mem_buf.size);
 
 		return_bufs_msg[i].addr =
-				return_bufs[i] ?
-						(uint64_t)return_bufs[i] :
-						(uint64_t)mr->addr;
+                        return_bufs[i] ? (uint64_t)return_bufs[i] : mem_buf.addr;
 		return_bufs_msg[i].length = return_buf_lengths[i];
-		return_bufs_msg[i].rkey = mr->rkey;
+		return_bufs_msg[i].rkey = mem_buf.na->rkey;
 	}
 
 	if (!context.remotes[dest])
@@ -346,16 +343,16 @@ ripc_send_long(
 	}
 
 	uint32_t i;
-	struct ibv_mr *mr, *return_mr;
+	mem_buf_t mem_buf, return_mem_buf;
 
 	//build packet header
-	struct ibv_mr *header_mr =
+	mem_buf_t header_mem_buf = 
 			ripc_alloc_recv_buf(
 					sizeof(struct msg_header)
 					+ sizeof(struct long_desc) * num_items
 					+ sizeof(struct long_desc) * num_return_bufs
 					);
-	struct msg_header *hdr = (struct msg_header *)header_mr->addr;
+	struct msg_header *hdr = (struct msg_header *)header_mem_buf.na->addr;
 	struct long_desc *msg =
 			(struct long_desc *)((uint64_t)hdr + sizeof(struct msg_header));
 	struct long_desc *return_bufs_msg = (struct long_desc *)(
@@ -371,66 +368,64 @@ ripc_send_long(
 	hdr->new_return_bufs = num_return_bufs;
 
 	struct ibv_sge sge; //+1 for header
-	sge.addr = (uint64_t)header_mr->addr;
+	sge.addr = header_mem_buf.addr;
 	sge.length = sizeof(struct msg_header)
 							+ sizeof(struct long_desc) * num_items
 							+ sizeof(struct long_desc) * num_return_bufs;
-	sge.lkey = header_mr->lkey;
+	sge.lkey = header_mem_buf.na->lkey;
 
 	for (i = 0; i < num_items; ++i) {
 
 		//make sure send buffers are registered with the hardware
-		mr = used_buf_list_get(buf[i]);
+		mem_buf = used_buf_list_get(buf[i]);
 		void *tmp_buf;
 
-		if (!mr) { //not registered yet
+		if (mem_buf.size == -1) { //not registered yet
 			DEBUG("mr not found in cache, creating new one");
-			mr = ripc_alloc_recv_buf(length[i]);
-			tmp_buf = mr->addr;
+			mem_buf = ripc_alloc_recv_buf(length[i]);
+			tmp_buf = mem_buf.na->addr;
 			memcpy(tmp_buf,buf[i],length[i]);
 		} else {
 			DEBUG("Found mr in cache!");
-			used_buf_list_add(mr);
+			used_buf_list_add(mem_buf);
 			tmp_buf = buf[i];
 		}
 
-		assert(mr);
+		assert(mem_buf.na);
 		//assert(mr->length >= length[i]); //the hardware won't allow it anyway
 
-		msg[i].addr = (uint64_t)mr->addr;
+		msg[i].addr = mem_buf.addr;
 		msg[i].length = length[i];
-		msg[i].rkey = mr->rkey;
+		msg[i].rkey = mem_buf.na->rkey;
 
-		DEBUG("Long word %u: addr %p, length %zu, rkey %#x",
+		DEBUG("Long word %u: addr %lx, length %zu, rkey %#x",
 				i,
-				mr->addr,
+				mem_buf.addr,
 				length[i],
-				mr->rkey);
+				mem_buf.na->rkey);
 
-		DEBUG("Message reads: %s", (char *)mr->addr);
+		DEBUG("Message reads: %s", (char *)mem_buf.addr);
 		/*
 		 * Now, check if we have a return buffer available. If so, push the
 		 * contents of the long word to the other side; if not, just send the
 		 * descriptor item and wait for the other side to pull the data.
 		 */
 		retry:
-		return_mr = return_buf_list_get(dest, length[i]);
-		if (! return_mr) {//no return buffer available
+		return_mem_buf = return_buf_list_get(dest, length[i]);
+		if (return_mem_buf.size == -1) {//no return buffer available
 			DEBUG("Did not find a return buffer for item %u (checked: dest %u, length %zu)",
 					i,
 					dest,
 					length[i]);
 			continue;
 		}
-		DEBUG("Found suitable return buffer: Remote address %p, size %zu, rkey %#x",
-				return_mr->addr,
-				return_mr->length,
-				return_mr->rkey);
+		DEBUG("Found suitable return buffer: Remote address %lx, size %zu, rkey %#x",
+                      return_mem_buf.addr, return_mem_buf.size, return_mem_buf.na->rkey);
 
 		struct ibv_sge rdma_sge;
 		rdma_sge.addr = msg[i].addr;
 		rdma_sge.length = length[i];
-		rdma_sge.lkey = mr->lkey;
+		rdma_sge.lkey = mem_buf.na->lkey;
 
 		struct ibv_send_wr rdma_wr;
 		rdma_wr.next = NULL;
@@ -439,8 +434,8 @@ ripc_send_long(
 		rdma_wr.send_flags = IBV_SEND_SIGNALED;
 		rdma_wr.sg_list = &rdma_sge;
 		rdma_wr.wr_id = 0xdeadbeef;
-		rdma_wr.wr.rdma.remote_addr = (uint64_t)return_mr->addr;
-		rdma_wr.wr.rdma.rkey = return_mr->rkey;
+		rdma_wr.wr.rdma.remote_addr = return_mem_buf.addr;
+		rdma_wr.wr.rdma.rkey = return_mem_buf.na->rkey;
 		struct ibv_send_wr *rdma_bad_wr;
 
 		struct ibv_qp *rdma_qp;
@@ -480,15 +475,15 @@ ripc_send_long(
 		if (rdma_wc.status) {
 			ERROR("Send result: %d", rdma_wc.status);
 			ERROR("QP state: %d", context.remotes[dest]->na.rdma_qp->state);
-			free(return_mr);
+			free(return_mem_buf.na);
 			goto retry; //return buffer was invalid, but maybe the next one will do
 		} else {
 			DEBUG("Result: %d", rdma_wc.status);
 			msg[i].transferred = 1;
-			msg[i].addr = (uint64_t)return_mr->addr;
+			msg[i].addr = return_mem_buf.addr;
 		}
 
-		free(return_mr);
+		free(return_mem_buf.na);
 	}
 
 	//process new return buffers
@@ -501,32 +496,30 @@ ripc_send_long(
 
 		if (return_bufs[i] == NULL) { //user wants us to allocate a buffer
 			DEBUG("User requested return buffer allocation");
-			mr = ripc_alloc_recv_buf(return_buf_lengths[i]);
+			mem_buf = ripc_alloc_recv_buf(return_buf_lengths[i]);
 
 		} else {
-			mr = used_buf_list_get(return_bufs[i]);
+			mem_buf = used_buf_list_get(return_bufs[i]);
 
-			if (!mr) { //not registered, try to register now
+			if (mem_buf.size == -1) { //not registered, try to register now
 				DEBUG("Return buffer not registered, attempting registration");
 				ripc_buf_register(return_bufs[i], return_buf_lengths[i]);
-				mr = used_buf_list_get(return_bufs[i]);
-				if (!mr) //registration failed, drop buffer
+				mem_buf = used_buf_list_get(return_bufs[i]);
+				if (mem_buf.size == -1) //registration failed, drop buffer
 					continue;
 				//else
-				DEBUG("Registration successful! rkey is %#x", mr->rkey);
-				used_buf_list_add(mr);
+				DEBUG("Registration successful! rkey is %#x", mem_buf.na->rkey);
+				used_buf_list_add(mem_buf);
 
 			} else { //mr was registered
-				DEBUG("Found mr at address %p, size %zu, rkey %#x",
-						mr->addr,
-						mr->length,
-						mr->rkey);
+				DEBUG("Found mr at address %lx, size %zu, rkey %#x",
+						mem_buf.addr, mem_buf.size, mem_buf.na->rkey);
 				//need to re-add the buffer even if it's too small
-				used_buf_list_add(mr);
+				used_buf_list_add(mem_buf);
 
 				//check if the registered buffer is big enough to hold the return buffer
 				if ((uint64_t)return_bufs[i] + return_buf_lengths[i] >
-						(uint64_t)mr->addr + mr->length) {
+						mem_buf.addr + mem_buf.size) {
 					DEBUG("Buffer is too small, skipping");
 					continue; //if it's too small, discard it
 				}
@@ -537,16 +530,12 @@ ripc_send_long(
 		 * At this point, we should have an mr, and we should know the buffer
 		 * represented by the mr is big enough for our return buffer.
 		 */
-		assert(mr);
-		assert ((uint64_t)return_bufs[i] + return_buf_lengths[i] <=
-				(uint64_t)mr->addr + mr->length);
+		assert(mem_buf.na);
+		assert ((uint64_t)return_bufs[i] + return_buf_lengths[i] <= mem_buf.addr + mem_buf.size);
 
-		return_bufs_msg[i].addr =
-				return_bufs[i] ?
-						(uint64_t)return_bufs[i] :
-						(uint64_t)mr->addr;
+		return_bufs_msg[i].addr = return_bufs[i] ? (uint64_t)return_bufs[i] : mem_buf.addr;
 		return_bufs_msg[i].length = return_buf_lengths[i];
-		return_bufs_msg[i].rkey = mr->rkey;
+		return_bufs_msg[i].rkey = mem_buf.na->rkey;
 	}
 
 	//message item done, now send it
@@ -751,17 +740,16 @@ ripc_receive(
 		}
 		DEBUG("Found receive window at address %p", rdma_addr);
 
-		struct ibv_mr *rdma_mr = used_buf_list_get(rdma_addr);
-		used_buf_list_add(rdma_mr);
+		mem_buf_t rdma_mem_buf = used_buf_list_get(rdma_addr);
+		used_buf_list_add(rdma_mem_buf);
 
-		DEBUG("Found rdma mr: addr %p, length %zu",
-				rdma_mr->addr,
-				rdma_mr->length);
+		DEBUG("Found rdma mr: addr %lx, length %zu",
+				rdma_mem_buf.addr, rdma_mem_buf.size);
 
 		struct ibv_sge rdma_sge;
 		rdma_sge.addr = (uint64_t)rdma_addr;
 		rdma_sge.length = long_msg[i].length;
-		rdma_sge.lkey = rdma_mr->lkey;
+		rdma_sge.lkey = rdma_mem_buf.na->lkey;
 
 		struct ibv_send_wr rdma_wr;
 		rdma_wr.next = NULL;
@@ -826,7 +814,7 @@ ripc_receive(
 		(*long_item_sizes)[i] = long_msg[i].length;
 	}
 
-	struct ibv_mr *mr;
+	mem_buf_t mem_buf;
 	for (i = 0; i < hdr->new_return_bufs; ++i) {
 		DEBUG("Found new return buffer: Address %lx, length %zu, rkey %#x",
 				return_bufs[i].addr,
@@ -841,14 +829,16 @@ ripc_receive(
 			 * Our buffer lists store MRs by default, so take a little detour
 			 * here to make them happy.
 			 */
-			mr = malloc(sizeof(struct ibv_mr));
-			memset(mr, 0, sizeof(struct ibv_mr));
+                        mem_buf.na = malloc(sizeof(struct ibv_mr));
+			memset(mem_buf.na, 0, sizeof(struct ibv_mr));
 
-			mr->addr = (void *)return_bufs[i].addr;
-			mr->length = return_bufs[i].length;
-			mr->rkey = return_bufs[i].rkey;
+			mem_buf.na->addr = (void *)return_bufs[i].addr;
+			mem_buf.na->length = return_bufs[i].length;
+                        mem_buf.na->rkey = return_bufs[i].rkey;
+			mem_buf.addr = (uint64_t) mem_buf.na->addr;
+			mem_buf.size = mem_buf.na->length;
 
-			return_buf_list_add(hdr->from, mr);
+			return_buf_list_add(hdr->from, mem_buf);
 
 			DEBUG("Saved return buffer for destination %u", hdr->from);
 		}

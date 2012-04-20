@@ -49,7 +49,8 @@ typedef bool _Bool;
 #include <local/common.h>
 #endif
 
-#include "memory.h"
+#include <memory.h>
+
 
 #define ERROR(...) fprintf(stderr, "Thread %d: %s() (%s, line %u): ", (int) pthread_self(), __PRETTY_FUNCTION__, __FILE__, __LINE__); fprintf(stderr, __VA_ARGS__); fprintf(stderr,"\n")
 #define panic(...) fprintf(stderr, "Thread %d: %s() (%s, line %u): FATAL: ", (int) pthread_self(), __PRETTY_FUNCTION__, __FILE__, __LINE__); fprintf(stderr, __VA_ARGS__); fprintf(stderr,"\n"); exit(EXIT_FAILURE)

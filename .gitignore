@@ -9,6 +9,6 @@
 /config.log
 *.o
 /autom4te.cache
-/build
+/build*
 Makefile.in
 configure

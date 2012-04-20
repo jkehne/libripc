@@ -29,13 +29,12 @@ struct mem_buf_list *receive_windows_tail = NULL;
 
 pthread_mutex_t used_list_mutex, free_list_mutex, recv_window_mutex;
 
-void used_buf_list_add(struct ibv_mr *item) {
+void used_buf_list_add(mem_buf_t mem_buf) {
 	struct mem_buf_list *container = malloc(sizeof(struct mem_buf_list));
 	assert(container);
 	memset(container, 0, sizeof(struct mem_buf_list));
 
-	container->mr = item;
-
+	container->buf = mem_buf;
 	pthread_mutex_lock(&used_list_mutex);
 
 	if (used_buffers == NULL) {
@@ -50,22 +49,22 @@ void used_buf_list_add(struct ibv_mr *item) {
 	return;
 }
 
-struct ibv_mr *used_buf_list_get(void *addr) {
+mem_buf_t used_buf_list_get(void *addr) {
 	pthread_mutex_lock(&used_list_mutex);
 
 	struct mem_buf_list *ptr = used_buffers;
 	struct mem_buf_list *prev = NULL;
 
 	while(ptr) {
-		if (((uint64_t)addr >= (uint64_t)ptr->mr->addr)
-				&& ((uint64_t)addr < (uint64_t)ptr->mr->addr + ptr->mr->length)) {
+		if (((uint64_t)addr >= ptr->buf.addr)
+				&& ((uint64_t)addr < ptr->buf.addr + ptr->buf.size)) {
 			if (prev)
 				prev->next = ptr->next;
 			else //first element in list
 				used_buffers = ptr->next;
 				//NOTE: If ptr is the only element, then ptr->next is NULL
 			pthread_mutex_unlock(&used_list_mutex);
-			struct ibv_mr *ret = ptr->mr;
+			mem_buf_t ret = ptr->buf;
 			free(ptr);
 			return ret;
 		}
@@ -73,15 +72,15 @@ struct ibv_mr *used_buf_list_get(void *addr) {
 		ptr = ptr->next;
 	}
 	pthread_mutex_unlock(&used_list_mutex);
-	return NULL; //not found
+	return invalid_mem_buf; //not found
 }
 
-void free_buf_list_add(struct ibv_mr *item) {
+void free_buf_list_add(mem_buf_t mem_buf) {
 	struct mem_buf_list *container = malloc(sizeof(struct mem_buf_list));
 	assert(container);
 	memset(container, 0, sizeof(struct mem_buf_list));
 
-	container->mr = item;
+	container->buf = mem_buf;
 	container->next = NULL;
 
 	pthread_mutex_lock(&free_list_mutex);
@@ -92,13 +91,14 @@ void free_buf_list_add(struct ibv_mr *item) {
 	} else {
 		available_buffers_tail->next = container;
 		available_buffers_tail = container;
+                
 	}
 
 	pthread_mutex_unlock(&free_list_mutex);
 	return;
 }
 
-struct ibv_mr *free_buf_list_get(size_t size) {
+mem_buf_t free_buf_list_get(size_t size) {
 	pthread_mutex_lock(&free_list_mutex);
 
 	struct mem_buf_list *ptr = available_buffers;
@@ -117,8 +117,8 @@ struct ibv_mr *free_buf_list_get(size_t size) {
 		 * In practise, this doesn't change transfer time much, but it
 		 * significantly reduces jitter!
 		 */
-		if ((ptr->mr->length >= size) &&
-				(ptr->mr->length <= size * 2)) {
+		if ((ptr->buf.size >= size) &&
+				(ptr->buf.size <= size * 2)) {
 			if (prev)
 				prev->next = ptr->next;
 			else //first element in list
@@ -130,7 +130,7 @@ struct ibv_mr *free_buf_list_get(size_t size) {
 					prev->next = NULL;
 			}
 			pthread_mutex_unlock(&free_list_mutex);
-			struct ibv_mr *ret = ptr->mr;
+			mem_buf_t ret = ptr->buf;
 			free(ptr);
 			return ret;
 		}
@@ -138,22 +138,18 @@ struct ibv_mr *free_buf_list_get(size_t size) {
 		ptr = ptr->next;
 	}
 	pthread_mutex_unlock(&free_list_mutex);
-	return NULL; //not found
+	return invalid_mem_buf; //not found
 }
 
-void recv_window_list_add(struct ibv_mr *item, void *base, size_t size) {
-	DEBUG("Registering receive window at address %p, size %zu",
-			base,
-			size);
+void recv_window_list_add(mem_buf_t mem_buf) {
+	DEBUG("Registering receive window at address %p, size %zu", mem_buf.rcv_addr, mem_buf.rcv_size);
 
 	struct mem_buf_list *container = malloc(sizeof(struct mem_buf_list));
 	assert(container);
 	memset(container, 0, sizeof(struct mem_buf_list));
 
-	container->mr = item;
 	container->next = NULL;
-	container->size = size;
-	container->base = base;
+ 	container->buf = mem_buf;
 
 	pthread_mutex_lock(&recv_window_mutex);
 
@@ -176,7 +172,7 @@ void *recv_window_list_get(size_t size) {
 	struct mem_buf_list *prev = NULL;
 
 	while(ptr) {
-		size_t ptr_size = ptr->size;
+		size_t ptr_size = ptr->buf.rcv_size;
 		DEBUG("Checking window list entry: entry size: %zu, requested size: %zu",
 				ptr_size,
 				size);
@@ -192,7 +188,7 @@ void *recv_window_list_get(size_t size) {
 					prev->next = NULL;
 			}
 			pthread_mutex_unlock(&recv_window_mutex);
-			void *ret = ptr->base;
+			void *ret = ptr->buf.rcv_addr;
 			free(ptr);
 			return ret;
 		}
@@ -203,12 +199,12 @@ void *recv_window_list_get(size_t size) {
 	return NULL; //not found
 }
 
-void return_buf_list_add(uint16_t remote, struct ibv_mr *item) {
+void return_buf_list_add(uint16_t remote, mem_buf_t mem_buf) {
 	struct mem_buf_list *container = malloc(sizeof(struct mem_buf_list));
 	assert(container);
 	memset(container, 0, sizeof(struct mem_buf_list));
 
-	container->mr = item;
+	container->buf = mem_buf;
 
 	pthread_mutex_lock(&remotes_mutex);
 
@@ -224,21 +220,21 @@ void return_buf_list_add(uint16_t remote, struct ibv_mr *item) {
 	return;
 }
 
-struct ibv_mr *return_buf_list_get(uint16_t remote, size_t size) {
+mem_buf_t return_buf_list_get(uint16_t remote, size_t size) {
 	pthread_mutex_lock(&remotes_mutex);
 
 	struct mem_buf_list *ptr = context.remotes[remote]->return_bufs;
 	struct mem_buf_list *prev = NULL;
 
 	while(ptr) {
-		if (ptr->mr->length >= size) {
+		if (ptr->buf.size >= size) {
 			if (prev)
 				prev->next = ptr->next;
 			else //first element in list
 				context.remotes[remote]->return_bufs = ptr->next;
 				//NOTE: If ptr is the only element, then ptr->next is NULL
 			pthread_mutex_unlock(&remotes_mutex);
-			struct ibv_mr *ret = ptr->mr;
+			mem_buf_t ret = ptr->buf;
 			free(ptr);
 			return ret;
 		}
@@ -246,133 +242,45 @@ struct ibv_mr *return_buf_list_get(uint16_t remote, size_t size) {
 		ptr = ptr->next;
 	}
 	pthread_mutex_unlock(&remotes_mutex);
-	return NULL; //not found
-}
-
-struct ibv_mr *ripc_alloc_recv_buf(size_t size) {
-	if (!size)
-		return NULL;
-
-	struct ibv_mr *mr;
-
-	mr = free_buf_list_get(size);
-	if (mr) {
-		DEBUG("Got hit in free list: Buffer at %p, size %zu", mr->addr, mr->length);
-		used_buf_list_add(mr);
-		memset(mr->addr, 0, mr->length);
-		return mr;
-	}
-
-	//none found in cache, so create a new one
-	DEBUG("No hit in free list, allocating new mr");
-	//mmap correctly aligns and zeroes the buffer.
-	void *buf = mmap(
-			0,
-			size,
-			PROT_READ | PROT_WRITE,
-			MAP_SHARED | MAP_ANONYMOUS,
-			-1,
-			0);
-
-	if (buf == (void *) -1) {
-		ERROR("buffer allocation failed: %s", strerror(errno));
-		return NULL;
-	}
-
-	assert(buf);
-	mr = ibv_reg_mr(
-			context.na.pd,
-			buf,
-			size,
-			IBV_ACCESS_LOCAL_WRITE |
-			IBV_ACCESS_REMOTE_READ |
-			IBV_ACCESS_REMOTE_WRITE);
-	DEBUG("mr buffer address is %p, size %zu", mr->addr, mr->length);
-	used_buf_list_add(mr);
-	return mr;
+	return invalid_mem_buf; //not found
 }
 
 void *ripc_buf_alloc(size_t size) {
-	struct ibv_mr *mr = ripc_alloc_recv_buf(size);
-	return mr ? mr->addr : NULL;
+	return (void *) ripc_alloc_recv_buf(size).addr;
 }
 
 void ripc_buf_free(void *buf) {
 	DEBUG("Putting buffer %p into free list", buf);
-	struct ibv_mr *mr = used_buf_list_get(buf);
-	if (mr)
-		free_buf_list_add(mr);
+	mem_buf_t mem_buf =  used_buf_list_get(buf);
+	if (mem_buf.size != -1)
+                free_buf_list_add(mem_buf);
 	else {
 		DEBUG("Buffer not found!");
 	}
 }
 
-uint8_t ripc_buf_register(void *buf, size_t size) {
-	struct ibv_mr *mr;
-	mr = used_buf_list_get(buf);
-	if (mr && ((uint64_t)buf + size > (uint64_t)mr->addr + mr->length)) {
-		used_buf_list_add(mr);
-		return 1; //overlapping buffers are unsupported
-	}
-	if (!mr)
-		mr = ibv_reg_mr(
-				context.na.pd,
-				buf,
-				size,
-				IBV_ACCESS_LOCAL_WRITE |
-				IBV_ACCESS_REMOTE_READ |
-				IBV_ACCESS_REMOTE_WRITE);
-	used_buf_list_add(mr);
-	return mr ? 0 : 1;
-}
+uint8_t ripc_reg_recv_window(void *rcv_addr, size_t rcv_size) {
+	mem_buf_t mem_buf;
+	assert(rcv_size > 0);
 
-void post_new_recv_buf(struct ibv_qp *qp) {
-	struct ibv_mr *mr;
-	struct ibv_sge *list;
-	struct ibv_recv_wr *wr, *bad_wr;
-	uint32_t i;
-
-	mr = ripc_alloc_recv_buf(RECV_BUF_SIZE);
-
-	list = malloc(sizeof(struct ibv_sge));
-	list->addr = (uint64_t)mr->addr;
-	list->length = mr->length;
-	list->lkey = mr->lkey;
-
-	wr = malloc(sizeof(struct ibv_recv_wr));
-	wr->wr_id = (uint64_t)wr;
-	wr->sg_list = list;
-	wr->num_sge = 1;
-	wr->next = NULL;
-
-	if (ibv_post_recv(qp, wr, &bad_wr)) {
-		ERROR("Failed to post receive item to QP %u!", qp->qp_num);
-	} else {
-		DEBUG("Posted receive buffer at address %p to QP %u",
-				mr->addr,
-				qp->qp_num);
-	}
-}
-
-uint8_t ripc_reg_recv_window(void *base, size_t size) {
-	struct ibv_mr *mr;
-	assert(size > 0);
-
-	if (base == NULL) { //the user wants us to specify the buffer
-		DEBUG("No base specified, allocating new buffer");
-		mr = ripc_alloc_recv_buf(size);
-		recv_window_list_add(mr, base, size);
+	if (rcv_addr == NULL) { //the user wants us to specify the buffer
+		DEBUG("No rcv_addr specified, allocating new buffer");
+		mem_buf = ripc_alloc_recv_buf(rcv_size);
+                mem_buf.rcv_addr = rcv_addr;
+                mem_buf.rcv_size = rcv_size;
+                recv_window_list_add(mem_buf);
 		return 0;
 	}
 
-	mr = used_buf_list_get(base); //are we registered yet?
-	if (mr) {
-		DEBUG("Found buffer mr: Base address %p, size %zu",
-				mr->addr,
-				mr->length);
-		used_buf_list_add(mr);
-		if ((uint64_t)base + size <= (uint64_t)mr->addr + mr->length) { //is the buffer big enough?
-			recv_window_list_add(mr, base, size);
+	mem_buf = used_buf_list_get(rcv_addr); //are we registered yet?
+	if (mem_buf.size != -1) {
+		DEBUG("Found buffer mr: Rcv_Addr address %p, size %zu",
+                      (void *) mem_buf.addr, mem_buf.size);
+                mem_buf.rcv_addr = rcv_addr;
+                mem_buf.rcv_size = rcv_size;
+                used_buf_list_add(mem_buf);
+		if ((uint64_t)rcv_addr + rcv_size <= mem_buf.addr + mem_buf.size) { //is the buffer big enough?
+                        recv_window_list_add(mem_buf);
 			return 0;
 		}
 		DEBUG("Receive buffer is too small, aborting");
@@ -381,11 +289,13 @@ uint8_t ripc_reg_recv_window(void *base, size_t size) {
 
 	// not registered yet
 	DEBUG("mr not found, registering memory area");
-	if (ripc_buf_register(base, size))
+	if (ripc_buf_register(rcv_addr, rcv_size))
 		return 1; //registration failed
 	DEBUG("Successfully registered memory area");
-	mr = used_buf_list_get(base);
-	used_buf_list_add(mr);
-	recv_window_list_add(mr, base, size);
+	mem_buf = used_buf_list_get(rcv_addr);
+        mem_buf.rcv_addr = rcv_addr;
+        mem_buf.rcv_size = rcv_size;
+        used_buf_list_add(mem_buf);
+        recv_window_list_add(mem_buf);
 	return 0;
 }

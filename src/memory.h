@@ -21,31 +21,47 @@
 #include <pthread.h>
 #include <common.h>
 
-struct mem_buf_list {
-	struct ibv_mr *mr;
+#ifdef NETARCH_INFINIBAND
+#include <infiniband/memory.h>
+#endif
+#ifdef NETARCH_BGP
+#include <bgp/memory.h>
+#endif 
+#ifdef NETARCH_LOCAL
+#include <local/memory.h>
+#endif 
+
+
+typedef struct mem_buf {
+        uint64_t addr; // mirrors netarch settings
+        size_t size;
+        void *rcv_addr; //these two members are for receive windows
+	size_t rcv_size;
+	netarch_mem_buf_t na;
+} mem_buf_t;
+
+
+typedef struct mem_buf_list {
 	struct mem_buf_list *next;
-	void *base; //these two members are for receive windows
-	size_t size;
-};
+	struct mem_buf buf;
+} mem_buf_list_t;
 
 extern pthread_mutex_t used_list_mutex, free_list_mutex, recv_window_mutex;
+static const mem_buf_t invalid_mem_buf = { 0, -1, NULL, -1, INVALID_NETARCH_MEM_BUF };
+        
+mem_buf_t used_buf_list_get(void *addr);
+void used_buf_list_add(mem_buf_t mem_buf);
 
-struct ibv_mr *used_buf_list_get(void *addr);
-void used_buf_list_add(struct ibv_mr *item);
-
-struct ibv_mr *free_buf_list_get(size_t size);
-void free_buf_list_add(struct ibv_mr *item);
+mem_buf_t free_buf_list_get(size_t size);
+void free_buf_list_add(mem_buf_t mem_buf);
 
 void *recv_window_list_get(size_t size);
-void recv_window_list_add(struct ibv_mr *item, void *base, size_t size);
+void recv_window_list_add(mem_buf_t mem_buf);
 
-struct ibv_mr *return_buf_list_get(uint16_t remote, size_t size);
-void return_buf_list_add(uint16_t remote, struct ibv_mr *item);
 
-#ifdef NETARCH_INFINIBAND
-void post_new_recv_buf(struct ibv_qp *qp);
-#endif
+mem_buf_t return_buf_list_get(uint16_t remote, size_t size);
+void return_buf_list_add(uint16_t remote, mem_buf_t mem_buf);
 
-struct ibv_mr *ripc_alloc_recv_buf(size_t size);
+mem_buf_t ripc_alloc_recv_buf(size_t size);
 
 #endif /* MEMORY_H_ */

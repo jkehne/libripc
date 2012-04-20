@@ -16,7 +16,6 @@
  */
 #include <../common.h>
 #include <../resources.h>
-#include <memory.h>
 
 struct service_id rdma_service_id;
 pthread_mutex_t rdma_connect_mutex;
@@ -283,7 +282,7 @@ void create_rdma_connection(uint16_t src, uint16_t dest) {
 
        //This is as far as we can go on our own. Now notify the other side.
 
-       struct ibv_mr *connect_mr = ripc_alloc_recv_buf(sizeof(struct rdma_connect_msg));
+       struct ibv_mr *connect_mr = ripc_alloc_recv_buf(sizeof(struct rdma_connect_msg)).na;
        struct rdma_connect_msg *msg = (struct rdma_connect_msg *)connect_mr->addr;
        msg->type = RIPC_RDMA_CONN_REQ;
        msg->qpn = remote->na.rdma_qp->qp_num;
