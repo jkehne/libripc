@@ -14,11 +14,29 @@
  *  You should have received a copy of the GNU Lesser General Public License
  *  along with libRIPC.  If not, see <http://www.gnu.org/licenses/>.
  */
-#include "resolver.h"
-#include "ripc.h"
-#include "resources.h"
+#include "common.h"
 #include "memory.h"
-#include <string.h>
+#include "ripc.h"
+#include <common.h>
+#include <errno.h>
+#include <memory.h>
 #include <pthread.h>
+#include <resolver.h>
+#include <resources.h>
+#include <ripc.h>
+#include <string.h>
+#include <string.h>
+#include <sys/mman.h>
+#include <time.h>
+#include <unistd.h>
 
-pthread_mutex_t resolver_mutex;
+mem_buf_t ripc_alloc_recv_buf(size_t size) {
+        DEBUG("ripc_alloc_recv_buf %d", size);
+        return invalid_mem_buf;
+
+}
+
+uint8_t ripc_buf_register(void *buf, size_t size) {
+        DEBUG("ripc_alloc_recv_buf %p %d", buf, size);
+	return 0;
+}

@@ -20,5 +20,7 @@
 
 pthread_mutex_t rdma_connect_mutex;
 
+void alloc_queue_state(struct service_id *service_id) {
+        DEBUG("alloc_queue_state");
 
-
+}

@@ -21,4 +21,6 @@
 #include <string.h>
 #include <pthread.h>
 
-pthread_mutex_t resolver_mutex;
+void resolver_init(void) {
+        DEBUG("resolver_init");
+}
