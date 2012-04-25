@@ -61,9 +61,8 @@ ripc_send_long(
 		size_t *return_buf_lengths,
 		uint32_t num_return_bufs) {
 
-	DEBUG("Starting long send: %u -> %u (%u items)", src, dest, num_items);
-
-	return 0;
+	DEBUG("Long send: %u -> %u (%u items)", src, dest, num_items);
+	return 1;
 }
 
 uint8_t
@@ -77,5 +76,5 @@ ripc_receive(
 		uint32_t **long_item_sizes,
 		uint16_t *num_long_items) {
 
-	return 0;
+	return 1;
 }

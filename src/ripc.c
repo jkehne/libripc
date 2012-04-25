@@ -29,7 +29,7 @@ struct library_context context;
 
 pthread_mutex_t services_mutex, remotes_mutex;
 
-uint8_t init(void) {
+uint8_t init() {
     
 	DEBUG("init %d", context.initialized);
         if (context.initialized)
@@ -50,7 +50,7 @@ uint8_t init(void) {
 	pthread_mutex_init(&rdma_connect_mutex, NULL);
 	pthread_mutex_init(&resolver_mutex, NULL);
 
-        dispatch_responder();
+        resolver_init();
 
        
         return 0;

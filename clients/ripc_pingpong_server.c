@@ -51,29 +51,32 @@ int main(void) {
 	printf("Starting loop\n");
 	while(true) {
 		DEBUG("Waiting for message");
-
-		ripc_receive(
-				SERVER_SERVICE_ID,
-				&from,
-				&short_items,
-				&short_sizes,
-				&num_short,
-				&long_items,
-				&long_sizes,
-				&num_long);
-
-		DEBUG("Received message: %d\n", *(int *)short_items[0]);
+                uint8_t ret = ripc_receive(
+                        SERVER_SERVICE_ID,
+                        &from,
+                        &short_items,
+                        &short_sizes,
+                        &num_short,
+                        &long_items,
+                        &long_sizes,
+                        &num_long);
+                
+                
+		if (ret)
+                        printf("Failed receiving message: %d\n", ret);
+                else
+                        DEBUG("Received message: %d\n", *(int *)short_items[0]);
 		//printf("pingpong %d\n", ++count);
 
 		ripc_send_short(
-				SERVER_SERVICE_ID,
-				from,
-				short_items,
-				(size_t *)short_sizes,
-				num_short,
-				return_buf_array,
-				return_buf_length_array,
-				SERVER_RETURN_BUFFERS);
+                        SERVER_SERVICE_ID,
+                        from,
+                        short_items,
+                        (size_t *)short_sizes,
+                        num_short,
+                        return_buf_array,
+                        return_buf_length_array,
+                        SERVER_RETURN_BUFFERS);
 
 		/*
 		 *  return receive buffer to pool. Note that we only have to free one

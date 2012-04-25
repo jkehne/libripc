@@ -32,7 +32,7 @@ struct resolver_msg {
 
 extern pthread_mutex_t resolver_mutex;
 
-void dispatch_responder(void);
+void resolver_init(void);
 void resolve(uint16_t src, uint16_t dest);
 
 #endif /* RESOLVER_H_ */

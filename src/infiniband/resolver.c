@@ -568,7 +568,7 @@ void *start_responder(void *arg) {
 	return NULL;
 }
 
-void dispatch_responder(void) {
+void resolver_init(void) {
 	//just trampoline to the real init function in new thread
 	pthread_mutex_lock(&resolver_mutex); //unlocked in start_responder
 	pthread_create(&responder_thread, NULL, &start_responder, NULL);

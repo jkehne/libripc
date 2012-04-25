@@ -31,12 +31,12 @@
 #include <unistd.h>
 
 mem_buf_t ripc_alloc_recv_buf(size_t size) {
-        DEBUG("ripc_alloc_recv_buf %d", size);
+        DEBUG("ripc_alloc_recv_buf %zu", size);
         return invalid_mem_buf;
 
 }
 
 uint8_t ripc_buf_register(void *buf, size_t size) {
-        DEBUG("ripc_alloc_recv_buf %p %d", buf, size);
+        DEBUG("ripc_alloc_recv_buf %p size %zu", buf, size);
 	return 0;
 }

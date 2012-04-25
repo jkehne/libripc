@@ -30,14 +30,15 @@
 #define CLIENT_RETURN_BUFFERS 0
 #define SERVER_RETURN_BUFFERS 0
 
-#define ERROR(...) fprintf(stderr, "%s() (%s, line %u): ", __PRETTY_FUNCTION__, __FILE__, __LINE__); fprintf(stderr, __VA_ARGS__); fprintf(stderr,"\n")
-#define panic(...) fprintf(stderr, "%s() (%s, line %u): FATAL: ", __PRETTY_FUNCTION__, __FILE__, __LINE__); fprintf(stderr, __VA_ARGS__); fprintf(stderr,"\n"); exit(EXIT_FAILURE)
+#define ERROR(...) do { fprintf(stderr, "%s() (%s, line %u): ", __PRETTY_FUNCTION__, __FILE__, __LINE__); fprintf(stderr, __VA_ARGS__); fprintf(stderr,"\n"); } while (0)
+#define panic(...) do { fprintf(stderr, "%s() (%s, line %u): FATAL: ", __PRETTY_FUNCTION__, __FILE__, __LINE__); fprintf(stderr, __VA_ARGS__); fprintf(stderr,"\n"); exit(EXIT_FAILURE); } while (0)
 
 #ifdef HAVE_DEBUG
 #define DEBUG(...) ERROR(__VA_ARGS__)
 #else
-#define DEBUG(...)
+#define DEBUG(...) do { } while (0)
 #endif
+
 
 #ifdef HAVE_STDBOOL_H
 # include <stdbool.h>
