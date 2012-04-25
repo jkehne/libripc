@@ -649,6 +649,9 @@ ripc_receive(
 
 	DEBUG("Message type is %#x", hdr->type);
 
+	//the next block can cause segmentation faults. Disable it for now until
+	//the error is found.
+#if 0
 	//cache remote address handle if we don't have it already
 	pthread_mutex_lock(&remotes_mutex);
 
@@ -663,6 +666,11 @@ ripc_receive(
 
 		assert(context.remotes[hdr->from]);
 
+		DEBUG("context: %p", &context);
+		DEBUG("context.remotes[hdr->from]: %p", context.remotes[hdr->from]);
+		DEBUG("context.na.pd: %p", context.na.pd);
+		DEBUG("wc: %p", &wc);
+
 		context.remotes[hdr->from]->na.ah =
 				ibv_create_ah_from_wc(context.na.pd, &wc, NULL, 1);
 
@@ -671,7 +679,7 @@ ripc_receive(
 	}
 
 	pthread_mutex_unlock(&remotes_mutex);
-
+#endif
 	struct short_header *msg =
 			(struct short_header *)(wr->sg_list->addr
 					+ 40 //skip GRH

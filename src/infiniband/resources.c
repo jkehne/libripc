@@ -327,6 +327,8 @@ retry:
 
        while ( ! ibv_poll_cq(rdma_service_id.na.send_cq, 1, &wc)) { /* wait for send completion */ }
 
+       DEBUG("Got send completion for connect request");
+
        int i = 0;
        while ( ! ibv_poll_cq(rdma_service_id.na.recv_cq, 1, &wc)) {
     	   if (i++ > 100000000)
