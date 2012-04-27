@@ -1,0 +1,234 @@
+Thread 774149888: init() (ripc.c, line 34): init 0
+Thread 774149888: netarch_init() (ripc.c, line 30): netarch_init
+Thread 774149888: netarch_init() (ripc.c, line 42): Opening device: mlx4_0
+Thread 774149888: netarch_init() (ripc.c, line 51): Successfully opened mlx4_0
+Thread 774149888: netarch_init() (ripc.c, line 64): Allocated protection domain: 0
+Thread 774149888: netarch_init() (ripc.c, line 71): Device mlx4_0 has 1 physical ports
+Thread 774149888: netarch_init() (ripc.c, line 72): Maximum mr size: 18446744073709551615
+Thread 774149888: netarch_init() (ripc.c, line 73): Maximum mr count: 524272
+Thread 774149888: netarch_init() (ripc.c, line 74): Maximum number of outstanding wrs: 16351
+Thread 774149888: netarch_init() (ripc.c, line 75): Maximum number of outstanding cqes: 4194303
+Thread 774149888: netarch_init() (ripc.c, line 76): Maximum number of sges per wr: 32
+Thread 774149888: netarch_init() (ripc.c, line 77): Local CA ACK delay: 15
+Thread 774149888: netarch_init() (ripc.c, line 78): Page size caps: fffffe00
+Thread 774149888: netarch_init() (ripc.c, line 84): Port 0: Found LID 0
+Thread 774149888: netarch_init() (ripc.c, line 85): Port 0 has 32566 GIDs
+Thread 774149888: netarch_init() (ripc.c, line 86): Port 0's maximum message size is 0
+Thread 774149888: alloc_queue_state() (resources.c, line 49): Allocated receive completion queue: 0
+Thread 774149888: alloc_queue_state() (resources.c, line 63): Allocated send completion queue: 1
+Thread 774149888: alloc_queue_state() (resources.c, line 88): Allocated queue pair: 107
+Thread 774149888: alloc_queue_state() (resources.c, line 107): Modified state of QP 107 to INIT
+Thread 774149888: alloc_queue_state() (resources.c, line 116): Modified state of QP 107 to RTR
+Thread 774149888: alloc_queue_state() (resources.c, line 126): Modified state of QP 107 to RTS
+Thread 774149888: alloc_queue_state() (resources.c, line 131): qkey of QP 107 is 0xffff
+Thread 774149888: ripc_alloc_recv_buf() (memory.c, line 46): No hit in free list, allocating new mr
+Thread 774149888: ripc_alloc_recv_buf() (memory.c, line 69): mr buffer address is 0x7f362e24f000, size 2000
+Thread 774149888: post_new_recv_buf() (memory.c, line 126): Posted receive buffer at address 7f362e24f000 to QP 107
+Thread 774149888: ripc_alloc_recv_buf() (memory.c, line 46): No hit in free list, allocating new mr
+Thread 774149888: ripc_alloc_recv_buf() (memory.c, line 69): mr buffer address is 0x7f362e24e000, size 2000
+Thread 774149888: post_new_recv_buf() (memory.c, line 126): Posted receive buffer at address 7f362e24e000 to QP 107
+Thread 774149888: ripc_alloc_recv_buf() (memory.c, line 46): No hit in free list, allocating new mr
+Thread 774149888: ripc_alloc_recv_buf() (memory.c, line 69): mr buffer address is 0x7f362e24d000, size 2000
+Thread 774149888: post_new_recv_buf() (memory.c, line 126): Posted receive buffer at address 7f362e24d000 to QP 107
+Thread 774149888: ripc_alloc_recv_buf() (memory.c, line 46): No hit in free list, allocating new mr
+Thread 774149888: ripc_alloc_recv_buf() (memory.c, line 69): mr buffer address is 0x7f362e24c000, size 2000
+Thread 774149888: post_new_recv_buf() (memory.c, line 126): Posted receive buffer at address 7f362e24c000 to QP 107
+Thread 774149888: ripc_alloc_recv_buf() (memory.c, line 46): No hit in free list, allocating new mr
+Thread 774149888: ripc_alloc_recv_buf() (memory.c, line 69): mr buffer address is 0x7f362e147000, size 2000
+Thread 774149888: post_new_recv_buf() (memory.c, line 126): Posted receive buffer at address 7f362e147000 to QP 107
+Thread 774149888: ripc_alloc_recv_buf() (memory.c, line 46): No hit in free list, allocating new mr
+Thread 774149888: ripc_alloc_recv_buf() (memory.c, line 69): mr buffer address is 0x7f362e146000, size 2000
+Thread 774149888: post_new_recv_buf() (memory.c, line 126): Posted receive buffer at address 7f362e146000 to QP 107
+Thread 774149888: ripc_alloc_recv_buf() (memory.c, line 46): No hit in free list, allocating new mr
+Thread 774149888: ripc_alloc_recv_buf() (memory.c, line 69): mr buffer address is 0x7f362e145000, size 2000
+Thread 774149888: post_new_recv_buf() (memory.c, line 126): Posted receive buffer at address 7f362e145000 to QP 107
+Thread 774149888: ripc_alloc_recv_buf() (memory.c, line 46): No hit in free list, allocating new mr
+Thread 774149888: ripc_alloc_recv_buf() (memory.c, line 69): mr buffer address is 0x7f362e144000, size 2000
+Thread 774149888: post_new_recv_buf() (memory.c, line 126): Posted receive buffer at address 7f362e144000 to QP 107
+Thread 774149888: ripc_alloc_recv_buf() (memory.c, line 46): No hit in free list, allocating new mr
+Thread 774149888: ripc_alloc_recv_buf() (memory.c, line 69): mr buffer address is 0x7f362e143000, size 2000
+Thread 774149888: post_new_recv_buf() (memory.c, line 126): Posted receive buffer at address 7f362e143000 to QP 107
+Thread 774149888: ripc_alloc_recv_buf() (memory.c, line 46): No hit in free list, allocating new mr
+Thread 774149888: ripc_alloc_recv_buf() (memory.c, line 69): mr buffer address is 0x7f362e142000, size 2000
+Thread 774149888: post_new_recv_buf() (memory.c, line 126): Posted receive buffer at address 7f362e142000 to QP 107
+Thread 774149888: init() (ripc.c, line 34): init 1
+Thread 774149888: ripc_register_service_id() (ripc.c, line 76): Allocating service ID 30764
+Thread 774149888: alloc_queue_state() (resources.c, line 34): Allocated completion event channel
+Thread 757528320: start_responder() (resolver.c, line 285): Allocating responder state
+Thread 757528320: alloc_queue_state() (resources.c, line 34): Allocated completion event channel
+Thread 774149888: alloc_queue_state() (resources.c, line 49): Allocated receive completion queue: 2
+Thread 757528320: alloc_queue_state() (resources.c, line 49): Allocated receive completion queue: 3
+Thread 774149888: alloc_queue_state() (resources.c, line 63): Allocated send completion queue: 4
+Thread 757528320: alloc_queue_state() (resources.c, line 63): Allocated send completion queue: 5
+Thread 774149888: alloc_queue_state() (resources.c, line 88): Allocated queue pair: 108
+Thread 757528320: alloc_queue_state() (resources.c, line 88): Allocated queue pair: 109
+Thread 774149888: alloc_queue_state() (resources.c, line 107): Modified state of QP 108 to INIT
+Thread 757528320: alloc_queue_state() (resources.c, line 107): Modified state of QP 109 to INIT
+Thread 774149888: alloc_queue_state() (resources.c, line 116): Modified state of QP 108 to RTR
+Thread 757528320: alloc_queue_state() (resources.c, line 116): Modified state of QP 109 to RTR
+Thread 774149888: alloc_queue_state() (resources.c, line 126): Modified state of QP 108 to RTS
+Thread 757528320: alloc_queue_state() (resources.c, line 126): Modified state of QP 109 to RTS
+Thread 774149888: alloc_queue_state() (resources.c, line 131): qkey of QP 108 is 0x782c
+Thread 774149888: ripc_alloc_recv_buf() (memory.c, line 46): No hit in free list, allocating new mr
+Thread 757528320: alloc_queue_state() (resources.c, line 131): qkey of QP 109 is 0xffff
+Thread 757528320: ripc_alloc_recv_buf() (memory.c, line 46): No hit in free list, allocating new mr
+Thread 774149888: ripc_alloc_recv_buf() (memory.c, line 69): mr buffer address is 0x7f362e13d000, size 2000
+Thread 774149888: post_new_recv_buf() (memory.c, line 126): Posted receive buffer at address 7f362e13d000 to QP 108
+Thread 774149888: ripc_alloc_recv_buf() (memory.c, line 46): No hit in free list, allocating new mr
+Thread 757528320: ripc_alloc_recv_buf() (memory.c, line 69): mr buffer address is 0x7f362e13c000, size 2000
+Thread 757528320: post_new_recv_buf() (memory.c, line 126): Posted receive buffer at address 7f362e13c000 to QP 109
+Thread 757528320: ripc_alloc_recv_buf() (memory.c, line 46): No hit in free list, allocating new mr
+Thread 774149888: ripc_alloc_recv_buf() (memory.c, line 69): mr buffer address is 0x7f362e13b000, size 2000
+Thread 774149888: post_new_recv_buf() (memory.c, line 126): Posted receive buffer at address 7f362e13b000 to QP 108
+Thread 774149888: ripc_alloc_recv_buf() (memory.c, line 46): No hit in free list, allocating new mr
+Thread 757528320: ripc_alloc_recv_buf() (memory.c, line 69): mr buffer address is 0x7f362e13a000, size 2000
+Thread 757528320: post_new_recv_buf() (memory.c, line 126): Posted receive buffer at address 7f362e13a000 to QP 109
+Thread 757528320: ripc_alloc_recv_buf() (memory.c, line 46): No hit in free list, allocating new mr
+Thread 774149888: ripc_alloc_recv_buf() (memory.c, line 69): mr buffer address is 0x7f362e139000, size 2000
+Thread 774149888: post_new_recv_buf() (memory.c, line 126): Posted receive buffer at address 7f362e139000 to QP 108
+Thread 774149888: ripc_alloc_recv_buf() (memory.c, line 46): No hit in free list, allocating new mr
+Thread 757528320: ripc_alloc_recv_buf() (memory.c, line 69): mr buffer address is 0x7f362e138000, size 2000
+Thread 757528320: post_new_recv_buf() (memory.c, line 126): Posted receive buffer at address 7f362e138000 to QP 109
+Thread 757528320: ripc_alloc_recv_buf() (memory.c, line 46): No hit in free list, allocating new mr
+Thread 774149888: ripc_alloc_recv_buf() (memory.c, line 69): mr buffer address is 0x7f362e137000, size 2000
+Thread 774149888: post_new_recv_buf() (memory.c, line 126): Posted receive buffer at address 7f362e137000 to QP 108
+Thread 774149888: ripc_alloc_recv_buf() (memory.c, line 46): No hit in free list, allocating new mr
+Thread 757528320: ripc_alloc_recv_buf() (memory.c, line 69): mr buffer address is 0x7f362e136000, size 2000
+Thread 757528320: post_new_recv_buf() (memory.c, line 126): Posted receive buffer at address 7f362e136000 to QP 109
+Thread 757528320: ripc_alloc_recv_buf() (memory.c, line 46): No hit in free list, allocating new mr
+Thread 774149888: ripc_alloc_recv_buf() (memory.c, line 69): mr buffer address is 0x7f362e135000, size 2000
+Thread 774149888: post_new_recv_buf() (memory.c, line 126): Posted receive buffer at address 7f362e135000 to QP 108
+Thread 774149888: ripc_alloc_recv_buf() (memory.c, line 46): No hit in free list, allocating new mr
+Thread 757528320: ripc_alloc_recv_buf() (memory.c, line 69): mr buffer address is 0x7f362e134000, size 2000
+Thread 757528320: post_new_recv_buf() (memory.c, line 126): Posted receive buffer at address 7f362e134000 to QP 109
+Thread 757528320: ripc_alloc_recv_buf() (memory.c, line 46): No hit in free list, allocating new mr
+Thread 774149888: ripc_alloc_recv_buf() (memory.c, line 69): mr buffer address is 0x7f362e133000, size 2000
+Thread 774149888: post_new_recv_buf() (memory.c, line 126): Posted receive buffer at address 7f362e133000 to QP 108
+Thread 774149888: ripc_alloc_recv_buf() (memory.c, line 46): No hit in free list, allocating new mr
+Thread 757528320: ripc_alloc_recv_buf() (memory.c, line 69): mr buffer address is 0x7f362e132000, size 2000
+Thread 757528320: post_new_recv_buf() (memory.c, line 126): Posted receive buffer at address 7f362e132000 to QP 109
+Thread 757528320: ripc_alloc_recv_buf() (memory.c, line 46): No hit in free list, allocating new mr
+Thread 757528320: ripc_alloc_recv_buf() (memory.c, line 69): mr buffer address is 0x7f362e130000, size 2000
+Thread 757528320: post_new_recv_buf() (memory.c, line 126): Posted receive buffer at address 7f362e130000 to QP 109
+Thread 757528320: ripc_alloc_recv_buf() (memory.c, line 46): No hit in free list, allocating new mr
+Thread 774149888: ripc_alloc_recv_buf() (memory.c, line 69): mr buffer address is 0x7f362e131000, size 2000
+Thread 774149888: post_new_recv_buf() (memory.c, line 126): Posted receive buffer at address 7f362e131000 to QP 108
+Thread 757528320: ripc_alloc_recv_buf() (memory.c, line 69): Thread 774149888: ripc_alloc_recv_buf() (memory.c, line 46): No hit in free list, allocating new mr
+mr buffer address is 0x7f362e12f000, size 2000
+Thread 757528320: post_new_recv_buf() (memory.c, line 126): Posted receive buffer at address 7f362e12f000 to QP 109
+Thread 757528320: ripc_alloc_recv_buf() (memory.c, line 46): No hit in free list, allocating new mr
+Thread 774149888: ripc_alloc_recv_buf() (memory.c, line 69): mr buffer address is 0x7f362e12e000, size 2000
+Thread 774149888: post_new_recv_buf() (memory.c, line 126): Posted receive buffer at address 7f362e12e000 to QP 108
+Thread 774149888: ripc_alloc_recv_buf() (memory.c, line 46): No hit in free list, allocating new mr
+Thread 757528320: ripc_alloc_recv_buf() (memory.c, line 69): mr buffer address is 0x7f362e12d000, size 2000
+Thread 757528320: post_new_recv_buf() (memory.c, line 126): Posted receive buffer at address 7f362e12d000 to QP 109
+Thread 757528320: ripc_alloc_recv_buf() (memory.c, line 46): No hit in free list, allocating new mr
+Thread 774149888: ripc_alloc_recv_buf() (memory.c, line 69): Thread 757528320: ripc_alloc_recv_buf() (memory.c, line 69): mr buffer address is 0x7f362e12b000, size 2000
+mr buffer address is 0x7f362e12c000, size 2000
+Thread 757528320: post_new_recv_buf() (memory.c, line 126): Thread 774149888: post_new_recv_buf() (memory.c, line 126): Posted receive buffer at address 7f362e12c000 to QP 108
+Posted receive buffer at address 7f362e12b000 to QP 109Thread 774149888: ripc_alloc_recv_buf() (memory.c, line 46): No hit in free list, allocating new mr
+
+Thread 774149888: ripc_alloc_recv_buf() (memory.c, line 69): mr buffer address is 0x7f362e129000, size 2000
+Thread 774149888: post_new_recv_buf() (memory.c, line 126): Posted receive buffer at address 7f362e129000 to QP 108
+Thread 757528320: alloc_queue_state() (resources.c, line 49): Allocated receive completion queue: 6
+Thread 757528320: alloc_queue_state() (resources.c, line 63): Allocated send completion queue: 7
+Thread 757528320: alloc_queue_state() (resources.c, line 88): Allocated queue pair: 110
+Thread 757528320: alloc_queue_state() (resources.c, line 107): Modified state of QP 110 to INIT
+Thread 757528320: alloc_queue_state() (resources.c, line 116): Modified state of QP 110 to RTR
+Thread 757528320: alloc_queue_state() (resources.c, line 126): Modified state of QP 110 to RTS
+Thread 757528320: alloc_queue_state() (resources.c, line 131): qkey of QP 110 is 0xffff
+Thread 757528320: ripc_alloc_recv_buf() (memory.c, line 46): No hit in free list, allocating new mr
+Thread 757528320: ripc_alloc_recv_buf() (memory.c, line 69): mr buffer address is 0x7f362c56e000, size 2000
+Thread 757528320: post_new_recv_buf() (memory.c, line 126): Posted receive buffer at address 7f362c56e000 to QP 110
+Thread 757528320: ripc_alloc_recv_buf() (memory.c, line 46): No hit in free list, allocating new mr
+Thread 757528320: ripc_alloc_recv_buf() (memory.c, line 69): mr buffer address is 0x7f362c56d000, size 2000
+Thread 757528320: post_new_recv_buf() (memory.c, line 126): Posted receive buffer at address 7f362c56d000 to QP 110
+Thread 757528320: ripc_alloc_recv_buf() (memory.c, line 46): No hit in free list, allocating new mr
+Thread 757528320: ripc_alloc_recv_buf() (memory.c, line 69): mr buffer address is 0x7f362c56c000, size 2000
+Thread 757528320: post_new_recv_buf() (memory.c, line 126): Posted receive buffer at address 7f362c56c000 to QP 110
+Thread 757528320: ripc_alloc_recv_buf() (memory.c, line 46): No hit in free list, allocating new mr
+Thread 757528320: ripc_alloc_recv_buf() (memory.c, line 69): mr buffer address is 0x7f362c56b000, size 2000
+Thread 757528320: post_new_recv_buf() (memory.c, line 126): Posted receive buffer at address 7f362c56b000 to QP 110
+Thread 757528320: ripc_alloc_recv_buf() (memory.c, line 46): No hit in free list, allocating new mr
+Thread 757528320: ripc_alloc_recv_buf() (memory.c, line 69): mr buffer address is 0x7f362c56a000, size 2000
+Thread 757528320: post_new_recv_buf() (memory.c, line 126): Posted receive buffer at address 7f362c56a000 to QP 110
+Thread 757528320: ripc_alloc_recv_buf() (memory.c, line 46): No hit in free list, allocating new mr
+Thread 757528320: ripc_alloc_recv_buf() (memory.c, line 69): mr buffer address is 0x7f362c569000, size 2000
+Thread 757528320: post_new_recv_buf() (memory.c, line 126): Posted receive buffer at address 7f362c569000 to QP 110
+Thread 757528320: ripc_alloc_recv_buf() (memory.c, line 46): No hit in free list, allocating new mr
+Thread 757528320: ripc_alloc_recv_buf() (memory.c, line 69): mr buffer address is 0x7f362c568000, size 2000
+Thread 757528320: post_new_recv_buf() (memory.c, line 126): Posted receive buffer at address 7f362c568000 to QP 110
+Thread 757528320: ripc_alloc_recv_buf() (memory.c, line 46): No hit in free list, allocating new mr
+Thread 757528320: ripc_alloc_recv_buf() (memory.c, line 69): mr buffer address is 0x7f362c567000, size 2000
+Thread 757528320: post_new_recv_buf() (memory.c, line 126): Posted receive buffer at address 7f362c567000 to QP 110
+Thread 757528320: ripc_alloc_recv_buf() (memory.c, line 46): No hit in free list, allocating new mr
+Thread 757528320: ripc_alloc_recv_buf() (memory.c, line 69): mr buffer address is 0x7f362c566000, size 2000
+Thread 757528320: post_new_recv_buf() (memory.c, line 126): Posted receive buffer at address 7f362c566000 to QP 110
+Thread 757528320: ripc_alloc_recv_buf() (memory.c, line 46): No hit in free list, allocating new mr
+Thread 757528320: ripc_alloc_recv_buf() (memory.c, line 69): mr buffer address is 0x7f362c565000, size 2000
+Thread 757528320: post_new_recv_buf() (memory.c, line 126): Posted receive buffer at address 7f362c565000 to QP 110
+Thread 757528320: start_responder() (resolver.c, line 323): Prepared multicast descriptor item
+ibwarn: [8594] umad_init: umad_init
+ibwarn: [8594] umad_open_port: ca (null) port 1
+ibwarn: [8594] umad_get_cas_names: max 32
+ibwarn: [8594] umad_get_cas_names: return 1 cas
+ibwarn: [8594] resolve_ca_name: checking ca 'mlx4_0'
+ibwarn: [8594] resolve_ca_port: checking ca 'mlx4_0'
+ibwarn: [8594] umad_get_ca: ca_name mlx4_0
+ibwarn: [8594] umad_get_ca: opened mlx4_0
+ibwarn: [8594] resolve_ca_name: found ca mlx4_0 with port 1 type 1
+ibwarn: [8594] resolve_ca_name: found ca mlx4_0 with active port 1
+ibwarn: [8594] umad_open_port: opening mlx4_0 port 1
+ibwarn: [8594] dev_to_umad_id: mapped mlx4_0 1 to 0
+ibwarn: [8594] umad_open_port: opened /dev/infiniband/umad0 fd 7 portid 0
+ibwarn: [8594] umad_register: fd 7 mgmt_class 3 mgmt_version 2 rmpp_version 0 method_mask (nil)
+ibwarn: [8594] umad_register: fd 7 registered to use agent 0 qp 1
+ibwarn: [8594] umad_set_addr: umad 0x7f362801acc0 dlid 1 dqp 1 sl 0, qkey 80010000
+ibwarn: [8594] umad_send: fd 7 agentid 0 umad 0x7f362801acc0 timeout 100
+ibwarn: [8594] umad_dump: agent id 0 status 0 timeout 100
+ibwarn: [8594] umad_addr_dump: qpn 1 qkey 0x80010000 lid 1 sl 0
+grh_present 0 gid_index 0 hop_limit 0 traffic_class 0 flow_label 0x0 pkey_index 0x0
+Gid 0x00000000000000000000000000000000
+ibwarn: [8594] umad_recv: fd 7 umad 0x7f362801acc0 timeout 5000
+ibwarn: [8594] umad_recv: mad received by agent 0 length 320
+ibwarn: [8594] umad_unregister: fd 7 unregistering agent 0
+ibwarn: [8594] umad_close_port: closed fd 7
+Thread 757528320: start_responder() (resolver.c, line 339): Successfully created multicast group with LID 0xc001 and GID efbeadde000001ff:10000000000feca
+Thread 757528320: start_responder() (resolver.c, line 352): Successfully attached to multicast group
+Thread 757528320: start_responder() (resolver.c, line 372): Successfully created resolver address handle
+Thread 757528320: ripc_alloc_recv_buf() (memory.c, line 46): No hit in free list, allocating new mr
+Thread 757528320: ripc_alloc_recv_buf() (memory.c, line 69): mr buffer address is 0x7f362c564000, size 24
+Thread 774149888: ripc_alloc_recv_buf() (memory.c, line 46): No hit in free list, allocating new mr
+Thread 774149888: ripc_alloc_recv_buf() (memory.c, line 69): mr buffer address is 0x7f362c563000, size 1900
+Thread 774149888: ripc_send_short() (ripc.c, line 110): Starting short send: 30764 -> 1 (1 items)
+Thread 774149888: ripc_send_short() (ripc.c, line 119): Total length: 0
+Thread 774149888: ripc_alloc_recv_buf() (memory.c, line 46): No hit in free list, allocating new mr
+Thread 774149888: ripc_alloc_recv_buf() (memory.c, line 69): mr buffer address is 0x7f362c561000, size 24
+Thread 774149888: ripc_send_short() (ripc.c, line 177): First message: offset 0x40, length 0
+Thread 774149888: ripc_send_short() (ripc.c, line 193): Found mr in cache!
+Thread 774149888: ripc_alloc_recv_buf() (memory.c, line 46): No hit in free list, allocating new mr
+Thread 774149888: ripc_alloc_recv_buf() (memory.c, line 69): mr buffer address is 0x7f362c560000, size 24
+Thread 774149888: resolve() (resolver.c, line 594): Allocated multicast mr
+Thread 774149888: resolve() (resolver.c, line 595): Address: 0x7f362c560000
+Thread 774149888: resolve() (resolver.c, line 624): Posting multicast send request
+Thread 774149888: resolve() (resolver.c, line 636): About to actually post multicast send request
+Thread 774149888: resolve() (resolver.c, line 639): Posted multicast send request
+Thread 774149888: resolve() (resolver.c, line 643): Got multicast send completion
+Thread 774149888: resolve() (resolver.c, line 651): Multicast message contents: from service: 30764, for service: 1, from qpn: 108, from lid: 0, response to: 110
+Thread 774149888: resolve() (resolver.c, line 654): Successfully sent multicast request, now waiting for reply on qp 110
+Thread 757528320: start_responder() (resolver.c, line 427): Received message: from service: 30764, for service: 1, from qpn: 108, from lid: 0, response to: 110
+Thread 757528320: ripc_alloc_recv_buf() (memory.c, line 46): No hit in free list, allocating new mr
+Thread 757528320: ripc_alloc_recv_buf() (memory.c, line 69): mr buffer address is 0x7f362c55f000, size 2000
+Thread 757528320: post_new_recv_buf() (memory.c, line 126): Posted receive buffer at address 7f362c55f000 to QP 109
+Thread 757528320: start_responder() (resolver.c, line 530): Cached remote contact info
+Thread 757528320: ripc_buf_free() (memory.c, line 253): Putting buffer 0x7f362e13c028 into free list
+Thread 774149888: resolve() (resolver.c, line 636): About to actually post multicast send request
+Thread 774149888: resolve() (resolver.c, line 639): Posted multicast send request
+Thread 774149888: resolve() (resolver.c, line 643): Got multicast send completion
+Thread 774149888: resolve() (resolver.c, line 651): Multicast message contents: from service: 30764, for service: 1, from qpn: 108, from lid: 0, response to: 110
+Thread 774149888: resolve() (resolver.c, line 654): Successfully sent multicast request, now waiting for reply on qp 110
+Thread 757528320: start_responder() (resolver.c, line 427): Received message: from service: 30764, for service: 1, from qpn: 108, from lid: 0, response to: 110
+Thread 757528320: ripc_alloc_recv_buf() (memory.c, line 39): Got hit in free list: Buffer at 0x7f362e13c000, size 2000
+Thread 757528320: post_new_recv_buf() (memory.c, line 126): Posted receive buffer at address 7f362e13c000 to QP 109
+Thread 757528320: start_responder() (resolver.c, line 530): Cached remote contact info
+Thread 757528320: ripc_buf_free() (memory.c, line 253): Putting buffer 0x7f362e13a028 into free list
