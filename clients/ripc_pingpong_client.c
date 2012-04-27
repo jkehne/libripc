@@ -42,6 +42,8 @@ int main(int argc, char *argv[]) {
 	void *return_buf_array[CLIENT_RETURN_BUFFERS];
 	size_t return_buf_length_array[CLIENT_RETURN_BUFFERS];
 	uint32_t packet_size = argc > 1 ? atoi(argv[1]) : PACKET_SIZE;
+	
+	DEBUG("CLIENT argc: %d, PACKET_SIZE: %d, packet_size: %d\n", argc, PACKET_SIZE, packet_size);
 
 	//for receiving
 	void **short_items = NULL, **long_items = NULL;
@@ -55,9 +57,14 @@ int main(int argc, char *argv[]) {
 		memset(msg_array[i], 0, packet_size);
 		//strcpy((char *)msg_array[i], "Hello short world!");
 		length_array[i] = packet_size;
+		
+		DEBUG("length_array[%d] = %d", i, length_array[i] );
 	}
+	
+	DEBUG("CLIENT packet_size after buffer alloc: %d", packet_size);
 
-	return_buf_array[0] = ripc_buf_alloc(packet_size * CLIENT_RETURN_BUFFERS);
+	// FIXME why does this break length_array?
+	/*return_buf_array[0] = ripc_buf_alloc(packet_size * CLIENT_RETURN_BUFFERS);
 	if (return_buf_array[0]) {
 		memset(return_buf_array[0], 0, packet_size * CLIENT_RETURN_BUFFERS);
 		return_buf_length_array[0] = packet_size;
@@ -65,13 +72,19 @@ int main(int argc, char *argv[]) {
 			return_buf_length_array[i] = packet_size;
 			return_buf_array[i] = return_buf_array[0] + i * packet_size;
 		}
-	}
+	}*/
+	
+	DEBUG("CLIENT packet_size before loop: %d", packet_size);
 
 	printf("Starting loop\n");
 
 	for (i = 0; i < NUM_ROUNDS; ++i) {
 
 		*(int *)msg_array[0] = i;
+		
+		for(j=0; j < WORDS_PER_PACKET; j++) {
+			DEBUG("length of word %d: %d\n", j, length_array[j]);
+		}
 
 		if (ripc_send_short(
 				my_service_id,

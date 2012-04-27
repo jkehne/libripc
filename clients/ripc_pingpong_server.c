@@ -38,7 +38,8 @@ int main(void) {
 	uint16_t from, num_short, num_long;
 	uint32_t *short_sizes, *long_sizes;
 
-	return_buf_array[0] = ripc_buf_alloc(PACKET_SIZE * SERVER_RETURN_BUFFERS);
+	// TODO does this break anything, as in the client?
+	/*return_buf_array[0] = ripc_buf_alloc(PACKET_SIZE * SERVER_RETURN_BUFFERS);
 	if (return_buf_array[0]) {
 		memset(return_buf_array[0], 0, PACKET_SIZE * SERVER_RETURN_BUFFERS);
 		return_buf_length_array[0] = PACKET_SIZE;
@@ -46,7 +47,7 @@ int main(void) {
 			return_buf_length_array[i] = PACKET_SIZE;
 			return_buf_array[i] = return_buf_array[0] + i * PACKET_SIZE;
 		}
-	}
+	}*/
 
 	printf("Starting loop\n");
 	while(true) {
