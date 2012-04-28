@@ -43,6 +43,7 @@ struct netarch_library_context {
 	struct ibv_context *device_context;
 	struct ibv_pd *pd;
 	uint16_t lid;
+	uint8_t  port_num;
 };
 
 #endif /* !__INFINIBAND_COMMON_H__ */

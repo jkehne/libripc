@@ -141,7 +141,7 @@ void handle_rdma_connect(struct rdma_connect_msg *msg) {
 
     struct ibv_qp_attr attr;
     attr.qp_state = IBV_QPS_INIT;
-    attr.port_num = 1;
+    attr.port_num = context.na.port_num;
     attr.pkey_index = 0;
     attr.qp_access_flags = IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_WRITE;
 
@@ -172,7 +172,7 @@ void handle_rdma_connect(struct rdma_connect_msg *msg) {
 	attr.ah_attr.dlid = msg->lid;
 	attr.ah_attr.sl = 0;
 	attr.ah_attr.src_path_bits = 0;
-	attr.ah_attr.port_num = 1;
+	attr.ah_attr.port_num = context.na.port_num;
 
 	if (ibv_modify_qp(remote->na.rdma_qp, &attr,
 			  IBV_QP_STATE              |
@@ -356,7 +356,7 @@ void *start_responder(void *arg) {
 	ah_attr.dlid = mcg_params.mlid;
 	ah_attr.is_global = 1;
 	ah_attr.sl = 0;
-	ah_attr.port_num = 1;
+	ah_attr.port_num = context.na.port_num;
 	ah_attr.grh.dgid = mcg_params.mgid;
 	ah_attr.grh.sgid_index = 0;
 	ah_attr.grh.hop_limit = 1;
@@ -469,7 +469,7 @@ void *start_responder(void *arg) {
 			response->src_service_id = msg->src_service_id;
 
 			ah_attr.dlid = msg->lid;
-			ah_attr.port_num = 1;
+			ah_attr.port_num = context.na.port_num;
 			resp_wr.wr.ud.ah = ibv_create_ah(context.na.pd, &ah_attr);
 			resp_wr.wr.ud.remote_qpn = msg->response_qpn;
 
@@ -502,7 +502,7 @@ void *start_responder(void *arg) {
 			}
 
 			ah_attr.dlid = msg->lid;
-			ah_attr.port_num = 1;
+			ah_attr.port_num = context.na.port_num;
 
 			context.remotes[msg->src_service_id]->na.ah =
 					ibv_create_ah(context.na.pd, &ah_attr);
@@ -692,7 +692,7 @@ keep_waiting:
 
 	 //got the info we wanted, now feed it to the cache
 	ah_attr.dlid = msg->lid;
-	ah_attr.port_num = 1;
+	ah_attr.port_num = context.na.port_num;
 	tmp_ah = ibv_create_ah(context.na.pd, &ah_attr);
 
 	pthread_mutex_lock(&remotes_mutex);

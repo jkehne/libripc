@@ -79,12 +79,21 @@ void netarch_init(void) {
 	int j;
 	struct ibv_port_attr port_attr;
 	union ibv_gid gid;
-	for (i = 0; i < device_attr.phys_port_cnt; ++i) {
+	bool foundactiveport = 0;
+	
+	for (i = 1; i <= device_attr.phys_port_cnt; ++i) {
 		ibv_query_port(context.na.device_context,i,&port_attr);
 		DEBUG("Port %d: Found LID %u", i, port_attr.lid);
 		DEBUG("Port %d has %d GIDs", i, port_attr.gid_tbl_len);
 		DEBUG("Port %d's maximum message size is %u", i, port_attr.max_msg_sz);
-		context.na.lid = port_attr.lid;
+		DEBUG("Port %d's status is %s", i, ibv_port_state_str(port_attr.state));
+		
+		if( !foundactiveport && port_attr.state == IBV_PORT_ACTIVE) {
+			DEBUG("Port %d is active, we shall use it", i);
+			context.na.lid      = port_attr.lid;
+			context.na.port_num = i;
+			foundactiveport = 1;
+		}
 	}
 
         rdma_service_id.na.no_cchannel = true;

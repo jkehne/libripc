@@ -91,7 +91,7 @@ void alloc_queue_state(struct service_id *service_id) {
 	struct ibv_qp_attr attr;
 	attr.qp_state = IBV_QPS_INIT;
 	attr.pkey_index = 0;
-	attr.port_num = 1;
+	attr.port_num = context.na.port_num;
 	attr.qkey = service_id->number;
 
 	if (ibv_modify_qp(service_id->na.qp,
@@ -263,7 +263,7 @@ void create_rdma_connection(uint16_t src, uint16_t dest) {
 
        struct ibv_qp_attr attr;
        attr.qp_state = IBV_QPS_INIT;
-       attr.port_num = 1;
+       attr.port_num = context.na.port_num;
        attr.pkey_index = 0;
        attr.qp_access_flags = IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_WRITE;
 
@@ -364,7 +364,7 @@ retry:
        attr.ah_attr.dlid = response_msg->lid;
        attr.ah_attr.sl = 0;
        attr.ah_attr.src_path_bits = 0;
-       attr.ah_attr.port_num = 1;
+       attr.ah_attr.port_num = context.na.port_num;
 
        pthread_mutex_lock(&remotes_mutex);
 
@@ -435,7 +435,7 @@ void dump_qp_state(struct ibv_qp *qp) {
 	ERROR("QP type: %u", init_attr.qp_type);
 	ERROR("dlid: %u", attr.ah_attr.dlid);
 	ERROR("dest QP: %u", attr.dest_qp_num);
-	ERROR("dest port: %u", attr.ah_attr.port_num);
+	ERROR("local port number: %u", attr.ah_attr.port_num);
 	ERROR("max inline data: %u", attr.cap.max_inline_data);
 	ERROR("max recv sge: %u", attr.cap.max_recv_sge);
 	ERROR("max send sge: %u", attr.cap.max_send_sge);
@@ -447,7 +447,7 @@ void dump_qp_state(struct ibv_qp *qp) {
 	ERROR("path migration state: %u", attr.path_mig_state);
 	ERROR("mtu: %u", attr.path_mtu);
 	ERROR("pkey index: %u", attr.pkey_index);
-	ERROR("port num: %u", attr.port_num);
+	ERROR("QP local port num: %u", attr.port_num);
 	ERROR("qkey: %#x", attr.qkey);
 	ERROR("access flags: %#x", attr.qp_access_flags);
 	ERROR("retry count: %u", attr.retry_cnt);
