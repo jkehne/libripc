@@ -161,6 +161,7 @@ void create_rdma_connection(uint16_t src, uint16_t dest) {
 
        //no lock, this shouldn't be touched after creation
        struct service_id *local = context.services[src];
+       int ret;
        assert(local); //if we don't have this, something definitely went wrong
 
        /*
@@ -308,7 +309,7 @@ void create_rdma_connection(uint16_t src, uint16_t dest) {
        wr.wr.ud.remote_qpn = remote->resolver_qp;
        wr.wr.ud.remote_qkey = 0xffff;
 
-       struct ibv_send_wr *bad_wr;
+       struct ibv_send_wr *bad_wr = NULL;
 
        //holding a lock while waiting on the network is BAD(tm)
        pthread_mutex_unlock(&remotes_mutex);
@@ -316,24 +317,33 @@ void create_rdma_connection(uint16_t src, uint16_t dest) {
        //we want only one connection request in flight at a time
        pthread_mutex_lock(&rdma_connect_mutex);
 retry:
-       if (ibv_post_send(rdma_service_id.na.qp, &wr, &bad_wr)) {
-    	   ERROR("Failed to send rdma connect request");
+	   ret = ibv_post_send(rdma_service_id.na.qp, &wr, &bad_wr);
+       if (ret) {
+    	   ERROR("Failed to send rdma connect request: %s", strerror(ret));
     	   goto error;
        } else {
     	   DEBUG("Sent rdma connect request to remote %u (qp %u)", dest, remote->resolver_qp);
        }
 
+       DEBUG("RDMA QP state: %u", rdma_service_id.na.qp->state);
+
        struct ibv_wc wc;
 
        while ( ! ibv_poll_cq(rdma_service_id.na.send_cq, 1, &wc)) { /* wait for send completion */ }
+
+       assert(wc.status == IBV_WC_SUCCESS);
 
        DEBUG("Got send completion for connect request");
 
        int i = 0;
        while ( ! ibv_poll_cq(rdma_service_id.na.recv_cq, 1, &wc)) {
-    	   if (i++ > 100000000)
+    	   if (i++ > 100000000) {
+    		   DEBUG("Timeout during rdma connect request (remote %u)", dest);
     		   goto retry;
+    	   }
        }
+
+       assert(wc.status == IBV_WC_SUCCESS);
 
        post_new_recv_buf(rdma_service_id.na.qp);
 

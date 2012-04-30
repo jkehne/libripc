@@ -119,13 +119,13 @@ ripc_send_short(
 	DEBUG("Starting short send: %u -> %u (%u items)", src, dest, num_items);
 
 	uint32_t i;
-	size_t total_length = 0;
+	uint32_t total_length = 0;
         mem_buf_t mem_buf;
         
 	for (i = 0; i < num_items; ++i)
 		total_length += length[i];
 
-	DEBUG("Total length: %lu", total_length);
+	DEBUG("Total length: %u", total_length);
 #if 0
 	if (total_length > (
 			RECV_BUF_SIZE
@@ -183,7 +183,7 @@ ripc_send_short(
 
 	for (i = 0; i < num_items; ++i) {
 
-		DEBUG("First message: offset %#x, length %zu", offset, length[i]);
+		DEBUG("First message: offset %#x, length %u", offset, length[i]);
 		msg[i].offset = offset;
 		msg[i].size = length[i];
 
@@ -321,10 +321,10 @@ ripc_send_short(
 	//ibv_ack_cq_events(context.services[src]->recv_cq, 1);
 	DEBUG("received completion message!");
 	if (wc.status) {
-		ERROR("Send result: %d", wc.status);
+		ERROR("Send result: %s", ibv_wc_status_str(wc.status));
 		ERROR("QP state: %d", dest_qp->state);
 	}
-	DEBUG("Result: %d", wc.status);
+	DEBUG("Result: %s", ibv_wc_status_str(wc.status));
 //#endif
 
 	ripc_buf_free(hdr);
@@ -352,6 +352,7 @@ ripc_send_long(
 	}
 
 	uint32_t i;
+	int ret;
 	mem_buf_t mem_buf, return_mem_buf;
 
 	//build packet header
@@ -456,11 +457,12 @@ ripc_send_long(
 		rdma_cchannel = context.remotes[dest]->na.rdma_cchannel;
 		pthread_mutex_unlock(&remotes_mutex);
 
-		if (ibv_post_send(
+		ret = ibv_post_send(
 				rdma_qp,
 				&rdma_wr,
-				&rdma_bad_wr)) {
-			ERROR("Failed to post write to return buffer for message item %u", i);
+				&rdma_bad_wr);
+		if (ret) {
+			ERROR("Failed to post write to return buffer for message item %u: %s", i, strerror(ret));
 		} else {
 			DEBUG("Posted write to return buffer for message item %u", i);
 		}
@@ -482,12 +484,12 @@ ripc_send_long(
 
 		DEBUG("received completion message!");
 		if (rdma_wc.status) {
-			ERROR("Send result: %d", rdma_wc.status);
+			ERROR("Send result: %s", ibv_wc_status_str(rdma_wc.status));
 			ERROR("QP state: %d", context.remotes[dest]->na.rdma_qp->state);
 			free(return_mem_buf.na);
 			goto retry; //return buffer was invalid, but maybe the next one will do
 		} else {
-			DEBUG("Result: %d", rdma_wc.status);
+			DEBUG("Result: %s", ibv_wc_status_str(rdma_wc.status));
 			msg[i].transferred = 1;
 			msg[i].addr = return_mem_buf.addr;
 		}
@@ -569,7 +571,7 @@ ripc_send_long(
 	struct ibv_cq *dest_cq = context.services[src]->na.send_cq;
 	pthread_mutex_unlock(&services_mutex);
 
-	int ret = ibv_post_send(dest_qp, &wr, &bad_wr);
+	ret = ibv_post_send(dest_qp, &wr, &bad_wr);
 
 	if (bad_wr) {
 		ERROR("Failed to post send: ", strerror(ret));
@@ -583,10 +585,10 @@ ripc_send_long(
 	while (!(ibv_poll_cq(dest_cq, 1, &wc))); //polling is probably faster here
 	DEBUG("received completion message!");
 	if (wc.status) {
-		ERROR("Send result: %d", wc.status);
+		ERROR("Send result: %s", ibv_wc_status_str(wc.status));
 		ERROR("QP state: %d", dest_qp->state);
 	}
-	DEBUG("Result: %d", wc.status);
+	DEBUG("Result: %s", ibv_wc_status_str(wc.status));
 
 	ripc_buf_free(hdr);
 
@@ -610,7 +612,7 @@ ripc_receive(
 	struct ibv_comp_channel *cchannel;
 	struct ibv_qp *qp;
 	uint32_t i;
-	uint8_t ret = 0;
+	int ret = 0;
 
 	pthread_mutex_lock(&services_mutex);
         
@@ -639,7 +641,9 @@ ripc_receive(
 
 	}
 
-	alarm(0);
+	//alarm(0);
+
+	assert(wc.status == IBV_WC_SUCCESS);
 
 	DEBUG("received!");
 
@@ -788,11 +792,12 @@ ripc_receive(
 		rdma_cchannel = context.remotes[hdr->from]->na.rdma_cchannel;
 		pthread_mutex_unlock(&remotes_mutex);
 
-		if (ibv_post_send(
+		ret = ibv_post_send(
 				rdma_qp,
 				&rdma_wr,
-				&rdma_bad_wr)) {
-			ERROR("Failed to post rdma read for message item %u", i);
+				&rdma_bad_wr);
+		if (ret) {
+			ERROR("Failed to post rdma read for message item %u: %s", i, strerror(ret));
 		} else {
 			DEBUG("Posted rdma read for message item %u", i);
 		}
@@ -819,10 +824,10 @@ ripc_receive(
 
 		DEBUG("received completion message!");
 		if (rdma_wc.status) {
-			ERROR("Send result: %d", rdma_wc.status);
+			ERROR("Send result: %s", ibv_wc_status_str(rdma_wc.status));
 			ERROR("QP state: %d", context.remotes[hdr->from]->na.rdma_qp->state);
 		} else {
-			DEBUG("Result: %d", rdma_wc.status);
+			DEBUG("Result: %s", ibv_wc_status_str(rdma_wc.status));
 		}
 
 		DEBUG("Message reads: %s", (char *)rdma_addr);

@@ -42,6 +42,10 @@ void handle_rdma_connect(struct rdma_connect_msg *msg) {
 			msg->psn,
 			msg->qpn);
 
+	uint32_t psn = 0;
+	struct ibv_qp_attr attr;
+	int ret;
+
     if (! context.remotes[msg->src_service_id])
             resolve(msg->dest_service_id, msg->src_service_id);
     assert(context.remotes[msg->src_service_id]);
@@ -59,6 +63,7 @@ void handle_rdma_connect(struct rdma_connect_msg *msg) {
 		 *
 		 * todo: proper handling of crashed remotes.
 		 */
+    	DEBUG("Connection for remote %u already established", msg->src_service_id);
 		goto reply;
     }
     if (remote->state == RIPC_RDMA_CONNECTING) {
@@ -139,7 +144,6 @@ void handle_rdma_connect(struct rdma_connect_msg *msg) {
             DEBUG("Allocated rdma QP %u", remote->na.rdma_qp->qp_num);
     }
 
-    struct ibv_qp_attr attr;
     attr.qp_state = IBV_QPS_INIT;
     attr.port_num = context.na.port_num;
     attr.pkey_index = 0;
@@ -186,7 +190,7 @@ void handle_rdma_connect(struct rdma_connect_msg *msg) {
 		goto error;
 	}
 
-	uint32_t psn = rand() & 0xffffff;
+	psn = rand() & 0xffffff;
 	DEBUG("My psn is %u", psn);
 
 	attr.qp_state 	    = IBV_QPS_RTS;
@@ -217,6 +221,23 @@ void handle_rdma_connect(struct rdma_connect_msg *msg) {
 
 	//now send a reply to let the other side know our details
 reply:
+	/*
+	 * If psn is 0, then we're re-sending a reply for an already
+	 * established connection. In that case, we need to figure
+	 * out the current psn and send it to the other side, or the
+	 * connection state will be invalid.
+	 */
+	if (psn == 0) {
+		struct ibv_qp_init_attr tmp_init_attr;
+		ret = ibv_query_qp(remote->na.rdma_qp, &attr, IBV_QP_SQ_PSN, &tmp_init_attr);
+		if (ret) {
+			ERROR("Failed to query existing connection state for remote %u: %s",
+					msg->src_service_id,
+					strerror(ret));
+		}
+		psn = attr.sq_psn;
+	}
+
 	msg->lid = context.na.lid;
 	msg->qpn = remote->na.rdma_qp->qp_num;
 	msg->psn = psn;
@@ -247,10 +268,12 @@ reply:
     //holding a lock while waiting on the network is BAD(tm)
     pthread_mutex_unlock(&remotes_mutex);
 
-	if (ibv_post_send(unicast_service_id.na.qp, &wr, &bad_wr)) {
-		ERROR("Failed to send connect response to remote %u (qp %u)",
+        ret = ibv_post_send(unicast_service_id.na.qp, &wr, &bad_wr);
+    	if (ret) {
+    		ERROR("Failed to send connect response to remote %u (qp %u): %s",
 				msg->src_service_id,
-				msg->response_qpn);
+				msg->response_qpn,
+				strerror(ret));
 		goto error;
 	} else {
 		DEBUG("Sent rdma connect response to remote %u (qp %u), containing lid %u, qpn %u and psn %u",
@@ -264,6 +287,8 @@ reply:
 	struct ibv_wc wc;
 
 	while ( ! ibv_poll_cq(unicast_service_id.na.send_cq, 1, &wc)) { /* wait */ }
+
+	assert(wc.status == IBV_WC_SUCCESS);
 
 	//msg is freed in caller!
 	return;
@@ -415,6 +440,8 @@ void *start_responder(void *arg) {
 			ibv_req_notify_cq(recvd_on, 0);
 		}
 
+		 assert(wc.status == IBV_WC_SUCCESS);
+
 		wr = (struct ibv_recv_wr *) wc.wr_id;
 		msg = (struct resolver_msg *)(wr->sg_list->addr + 40);
 
@@ -473,7 +500,10 @@ void *start_responder(void *arg) {
 			resp_wr.wr.ud.ah = ibv_create_ah(context.na.pd, &ah_attr);
 			resp_wr.wr.ud.remote_qpn = msg->response_qpn;
 
-			ibv_post_send(unicast_service_id.na.qp, &resp_wr, &bad_send_wr);
+			ret = ibv_post_send(unicast_service_id.na.qp, &resp_wr, &bad_send_wr);
+			if (ret) {
+				ERROR("Failed to post resolver reply: %s", strerror(ret));
+			}
 			DEBUG("Sent reply");
 		} else
 			pthread_mutex_unlock(&services_mutex);
@@ -534,7 +564,8 @@ void *start_responder(void *arg) {
 		 */
 		if (for_us) {
 			while (!ibv_poll_cq(unicast_service_id.na.send_cq, 1, &wc)) { /* wait */ }
-			DEBUG("Got send completion, result: %u", wc.status);
+			DEBUG("Got send completion, result: %s", ibv_wc_status_str(wc.status));
+			assert(wc.status == IBV_WC_SUCCESS);
 
 			//we won't be needing the response ah for a while
 			ibv_destroy_ah(resp_wr.wr.ud.ah);
@@ -582,7 +613,7 @@ void resolve(uint16_t src, uint16_t dest) {
 	struct ibv_sge sge;
 	struct ibv_ah_attr ah_attr;
 	struct ibv_ah *tmp_ah;
-	int i;
+	int i, ret;
 
 	buf_mr = ripc_alloc_recv_buf(sizeof(struct resolver_msg)).na;
 
@@ -634,11 +665,17 @@ void resolve(uint16_t src, uint16_t dest) {
 	pthread_mutex_lock(&resolver_mutex);
 retry:
 	DEBUG("About to actually post multicast send request");
-	ibv_post_send(mcast_service_id.na.qp, &wr, &bad_wr);
+	ret = ibv_post_send(mcast_service_id.na.qp, &wr, &bad_wr);
+	if (ret != 0) {
+		ERROR("Failed to post multicast send request: %s",strerror(ret));
+		return;
+	}
 
 	DEBUG("Posted multicast send request");
 
 	while ( ! ibv_poll_cq(mcast_service_id.na.send_cq, 1, &wc)) { /* wait */ }
+
+	assert(wc.status == IBV_WC_SUCCESS);
 
 	DEBUG("Got multicast send completion");
 
@@ -663,6 +700,8 @@ keep_waiting:
 		if (i++ > 100000000)
 			goto retry;
 	}
+
+	assert(wc.status == IBV_WC_SUCCESS);
 
 	post_new_recv_buf(unicast_service_id.na.qp);
 
