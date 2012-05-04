@@ -14,6 +14,9 @@
  *  You should have received a copy of the GNU Lesser General Public License
  *  along with libRIPC.  If not, see <http://www.gnu.org/licenses/>.
  */
+
+#include <trace_hooks.h>
+
 #include "common.h"
 #include "memory.h"
 #include "ripc.h"
