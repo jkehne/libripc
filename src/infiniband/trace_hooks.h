@@ -74,25 +74,25 @@ static inline struct ibv_mr *hooked_ibv_reg_mr(struct ibv_pd *pd, void *addr,
 			  size_t length, int access) {
 				  
 	struct ibv_mr * mr = hooked_ibv_reg_mr(pd, addr, length, access);
-	// TODO tracepoint
+	tracepoint(libripc_ibv, reg_mr, pd, addr, lenth, access, mr);
 	return mr;
 }
 
 static inline int hooked_ibv_dereg_mr(struct ibv_mr *mr) {
 	int res = ibv_dereg_mr(mr);
-	// TODO tracepoint
+	tracepoint(libripc_ibv, dereg_mr, mr, res);
 	return res;
 }
 
 static inline struct ibv_comp_channel *hooked_ibv_create_comp_channel(struct ibv_context *context) {
 	struct ibv_comp_channel * cc = ibv_create_comp_channel(context);
-	// TODO
+	tracepoint(libripc_ibv, create_comp_channel, context, cc);
 	return cc;
 }
 
 static inline int hooked_ibv_destroy_comp_channel(struct ibv_comp_channel *channel) {
 	int res = ibv_destroy_comp_channel(channel);
-	// TODO
+	tracepoint(libripc_ibv, destroy_comp_channel, channel, res);
 	return res;
 }
 
@@ -101,7 +101,8 @@ static inline struct ibv_cq *hooked_ibv_create_cq(struct ibv_context *context, i
 			     struct ibv_comp_channel *channel,
 			     int comp_vector) {
 	struct ibv_cq * cq = ibv_create_cq(context, cqe, cq_context, channel, comp_vector);
-	// TODO
+	tracepoint(libripc_ibv, create_cq, context, cqe, cq_context,
+			channel, comp_vector, cq);
 	return cq;
 }
 
@@ -109,7 +110,7 @@ static inline struct ibv_cq *hooked_ibv_create_cq(struct ibv_context *context, i
 
 static inline int hooked_ibv_destroy_cq(struct ibv_cq *cq) {
 	int res = ibv_destroy_cq(cq);
-	// TODO
+	tracepoint(libripc_ibv, destroy_cq, cq, res);
 	return res;
 }
 
@@ -122,13 +123,13 @@ static inline int hooked_ibv_get_cq_event(struct ibv_comp_channel *channel,
 
 static inline void hooked_ibv_ack_cq_events(struct ibv_cq *cq, unsigned int nevents) {
 	ibv_ack_cq_events(cq, nevents);
-	// TODO
+	// TODO tracepoint
 }
 
 static inline int hooked_ibv_poll_cq(struct ibv_cq *cq, int num_entries, struct ibv_wc *wc)
 {
 	int res = ibv_poll_cq(cq, num_entries, wc);
-	// TODO
+	tracepoint(libripc_ibv, poll_cq, cq, num_entries, res);
 	return res;
 }
 
@@ -189,7 +190,7 @@ static inline int hooked_ibv_post_send(struct ibv_qp *qp, struct ibv_send_wr *wr
 				struct ibv_send_wr **bad_wr)
 {
 	int res = ibv_post_send(qp, wr,	bad_wr);
-	// TODO
+	tracepoint(libripc_ibv, post_send, qp, wr, res);
 	return res;
 }
 
@@ -197,9 +198,10 @@ static inline int hooked_ibv_post_recv(struct ibv_qp *qp, struct ibv_recv_wr *wr
 				struct ibv_recv_wr **bad_wr)
 {
 	int res = ibv_post_recv(qp, wr,	bad_wr);
-	// TODO
+	tracepoint(libripc_ibv, post_recv, qp, wr, res);
 	return res;
 }
+
 /*
 struct ibv_ah *hooked_ibv_create_ah(struct ibv_pd *pd, struct ibv_ah_attr *attr);
 
