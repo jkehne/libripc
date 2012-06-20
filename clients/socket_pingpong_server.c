@@ -50,21 +50,26 @@ int main(void) {
 	//wait for connection
 	listen(listen_sockfd, 5);
 
-	length = sizeof(cli_addr);
-	conn_sockfd = accept(
-			listen_sockfd,
-			(struct sockaddr *)&cli_addr,
-			&length
-			);
-	if (conn_sockfd < 0) {
-		panic("Error on accept");
-	}
+	while (1) {
+		length = sizeof(cli_addr);
+		conn_sockfd = accept(
+				listen_sockfd,
+				(struct sockaddr *)&cli_addr,
+				&length
+				);
+		if (conn_sockfd < 0) {
+			panic("Error on accept");
+		}
 
-	while(1) {
-		//DEBUG("Waiting for message");
-		length = read(conn_sockfd, &payload, PACKET_SIZE);
-		//DEBUG("Received message: %d\n", payload);
-		length = write(conn_sockfd, &payload, length);
+		while(1) {
+			//DEBUG("Waiting for message");
+			length = read(conn_sockfd, &payload, PACKET_SIZE);
+			if (length < 1)
+				break;
+			//DEBUG("Received message: %d\n", payload);
+			length = write(conn_sockfd, &payload, length);
+		}
+		close(conn_sockfd);
 	}
 	return EXIT_SUCCESS;
 }
