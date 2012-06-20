@@ -96,6 +96,17 @@ void netarch_init(void) {
 		}
 	}
 
+	/*
+	 * This thread listens for asynchronous events on the IB device we're using
+	 * and emits a log message whenever an event is encountered.
+	 */
+	pthread_create(
+			&async_event_logger_thread,
+			NULL,
+			async_event_logger,
+			(void *)context.na.device_context
+			);
+
         rdma_service_id.na.no_cchannel = true;
         rdma_service_id.number = 0xffff;
         //queues for sending connection requests
@@ -414,7 +425,9 @@ ripc_send_long(
 				length[i],
 				mem_buf.na->rkey);
 
-		DEBUG("Message reads: %s", (char *)mem_buf.addr);
+		if (length[i] < 100000) {
+			DEBUG("Message reads: %s", (char *)mem_buf.addr);
+		}
 		/*
 		 * Now, check if we have a return buffer available. If so, push the
 		 * contents of the long word to the other side; if not, just send the
@@ -571,18 +584,31 @@ ripc_send_long(
 	struct ibv_cq *dest_cq = context.services[src]->na.send_cq;
 	pthread_mutex_unlock(&services_mutex);
 
-	ret = ibv_post_send(dest_qp, &wr, &bad_wr);
-
-	if (bad_wr) {
-		ERROR("Failed to post send: ", strerror(ret));
-		return ret;
-	} else {
-		DEBUG("Successfully posted send!");
-	}
-
-
+	bool repeat;
 	struct ibv_wc wc;
-	while (!(ibv_poll_cq(dest_cq, 1, &wc))); //polling is probably faster here
+	do {
+		i = 0;
+		repeat = false;
+		ret = ibv_post_send(dest_qp, &wr, &bad_wr);
+
+		if (bad_wr || ret) {
+			ERROR("Failed to post send: %s", strerror(ret));
+			return ret;
+		} else {
+			DEBUG("Successfully posted send!");
+		}
+
+
+		while ((ibv_poll_cq(dest_cq, 1, &wc) < 1)) { //polling is probably faster here
+			if (i++ > 10000000) {
+				DEBUG("Did not get completion for long send to service %u", dest);
+				dump_qp_state(dest_qp);
+				repeat = true;
+				break;
+			}
+		}
+	} while (repeat);
+
 	DEBUG("received completion message!");
 	if (wc.status) {
 		ERROR("Send result: %s", ibv_wc_status_str(wc.status));
@@ -830,7 +856,9 @@ ripc_receive(
 			DEBUG("Result: %s", ibv_wc_status_str(rdma_wc.status));
 		}
 
-		DEBUG("Message reads: %s", (char *)rdma_addr);
+		if (long_msg[i].length < 100000) {
+			DEBUG("Message reads: %s", (char *)rdma_addr);
+		}
 
 		(*long_items)[i] = rdma_addr;
 		(*long_item_sizes)[i] = long_msg[i].length;

@@ -19,6 +19,7 @@
 
 struct service_id rdma_service_id;
 pthread_mutex_t rdma_connect_mutex;
+pthread_t async_event_logger_thread;
 
 void alloc_queue_state(struct service_id *service_id) {
 	uint32_t i;
@@ -434,6 +435,18 @@ retry:
                ibv_destroy_cq(remote->na.rdma_recv_cq);
        remote->state = RIPC_RDMA_DISCONNECTED;
        pthread_mutex_unlock(&remotes_mutex);
+}
+
+void* async_event_logger(void *context) {
+	struct ibv_async_event async_event;
+	DEBUG("Asynchronous event logger started");
+	while (true) {
+		if (ibv_get_async_event((struct ibv_context *)context, &async_event))
+			continue;
+		DEBUG("Received asynchronous event: %s", ibv_event_type_str(async_event.event_type));
+		ibv_ack_async_event(&async_event);
+	}
+	return NULL;
 }
 
 void dump_qp_state(struct ibv_qp *qp) {
