@@ -34,6 +34,10 @@ mem_buf_t ripc_alloc_recv_buf(size_t size) {
 	if (!size)
 		return invalid_mem_buf;
 
+	if (! context.na.pd)
+		init();
+	assert(context.na.pd);
+
         mem_buf_t ret = free_buf_list_get(size);
 	if (ret.size != -1) {
 		DEBUG("Got hit in free list: Buffer at %p, size %zu", ret.na->addr, ret.na->length);
