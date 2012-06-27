@@ -26,6 +26,7 @@
 #include <ripc.h>
 #include <string.h>
 #include <string.h>
+#define __USE_GNU
 #include <sys/mman.h>
 #include <time.h>
 #include <unistd.h>
@@ -78,15 +79,35 @@ mem_buf_t ripc_alloc_recv_buf(size_t size) {
         return ret;
 }
 
-
+mem_buf_t ripc_resize_recv_buf (mem_buf_t buf, size_t size) {
+	ibv_dereg_mr(buf.na);
+	void *ptr = mremap((void *)buf.addr, buf.size, size, MREMAP_MAYMOVE);
+	if (ptr <= 0) {
+		ERROR("mremap failed! oldaddr: %lu, newsize: %lu", buf.addr, size);
+		munmap((void *)buf.addr, buf.size);
+		return invalid_mem_buf;
+	}
+	mem_buf_t ret;
+	ret.na = ibv_reg_mr(
+                context.na.pd,
+                ptr,
+                size,
+                IBV_ACCESS_LOCAL_WRITE |
+                IBV_ACCESS_REMOTE_READ |
+                IBV_ACCESS_REMOTE_WRITE);
+    ret.addr = (uint64_t) ret.na->addr;
+    ret.size = ret.na->length;
+    used_buf_list_add(ret);
+    return ret;
+}
 
 uint8_t ripc_buf_register(void *buf, size_t size) {
 	mem_buf_t mem_buf =  used_buf_list_get(buf);
-	if (mem_buf.size != -1 && ((uint64_t)buf + size > (uint64_t)mem_buf.addr + mem_buf.size)) {
+	if (mem_buf.size != -1) { // && ((uint64_t)buf + size > (uint64_t)mem_buf.addr + mem_buf.size)) {
                 used_buf_list_add(mem_buf);
-		return 1; //overlapping buffers are unsupported
+		return 0; //already registered
 	}
-	if (mem_buf.size == -1 ) {
+	//if (mem_buf.size == -1 ) {
 		mem_buf.na = ibv_reg_mr(
                         context.na.pd,
                         buf,
@@ -97,11 +118,12 @@ uint8_t ripc_buf_register(void *buf, size_t size) {
                 if (mem_buf.na) {
                         mem_buf.addr = (uint64_t) mem_buf.na->addr;
                         mem_buf.size = mem_buf.na->length;
+                        used_buf_list_add(mem_buf);
+                        return 0; //registration successful
                 }
 
-        }
-        used_buf_list_add(mem_buf);
-	return mem_buf.na ? 0 : 1;
+    //    }
+	return 1; //registration unsuccessful
 }
 
 

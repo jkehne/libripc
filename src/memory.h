@@ -63,5 +63,6 @@ mem_buf_t return_buf_list_get(uint16_t remote, size_t size);
 void return_buf_list_add(uint16_t remote, mem_buf_t mem_buf);
 
 mem_buf_t ripc_alloc_recv_buf(size_t size);
+mem_buf_t ripc_resize_recv_buf(mem_buf_t buf, size_t size);
 
 #endif /* MEMORY_H_ */

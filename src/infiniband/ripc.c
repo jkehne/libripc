@@ -403,9 +403,16 @@ ripc_send_long(
 
 		if (mem_buf.size == -1) { //not registered yet
 			DEBUG("mr not found in cache, creating new one");
-			mem_buf = ripc_alloc_recv_buf(length[i]);
-			tmp_buf = mem_buf.na->addr;
-			memcpy(tmp_buf,buf[i],length[i]);
+			if (! ripc_buf_register(buf[i], length[i])) {
+				mem_buf = used_buf_list_get(buf[i]);
+				assert(mem_buf.size > 0);
+				used_buf_list_add(mem_buf);
+				tmp_buf = buf[i];
+			} else {
+				mem_buf = ripc_alloc_recv_buf(length[i]);
+				tmp_buf = mem_buf.na->addr;
+				memcpy(tmp_buf,buf[i],length[i]);
+			}
 		} else {
 			DEBUG("Found mr in cache!");
 			used_buf_list_add(mem_buf);
@@ -415,15 +422,15 @@ ripc_send_long(
 		assert(mem_buf.na);
 		//assert(mr->length >= length[i]); //the hardware won't allow it anyway
 
-		msg[i].addr = mem_buf.addr;
+		msg[i].addr = (uint64_t)tmp_buf;
 		msg[i].length = length[i];
 		msg[i].rkey = mem_buf.na->rkey;
 
 		DEBUG("Long word %u: addr %lx, length %zu, rkey %#x",
 				i,
-				mem_buf.addr,
-				length[i],
-				mem_buf.na->rkey);
+				msg[i].addr,
+				msg[i].length,
+				msg[i].rkey);
 
 		if (length[i] < 100000) {
 			DEBUG("Message reads: %s", (char *)mem_buf.addr);
@@ -687,6 +694,8 @@ ripc_receive(
 	}
 
 	DEBUG("Message type is %#x", hdr->type);
+
+	DEBUG("Message from: %d, short words: %d, long words: %d", hdr->from, hdr->short_words, hdr->long_words);
 
 	//the next block can cause segmentation faults. Disable it for now until
 	//the error is found.

@@ -249,6 +249,16 @@ void *ripc_buf_alloc(size_t size) {
 	return (void *) ripc_alloc_recv_buf(size).addr;
 }
 
+void *ripc_buf_realloc(void *buf, size_t size) {
+	mem_buf_t oldbuf = used_buf_list_get(buf);
+	DEBUG("Resizing buffer %p from %lu to %lu", buf, oldbuf.size, size);
+	mem_buf_t newbuf = ripc_resize_recv_buf(
+			oldbuf, //NOTE: The buffer is intentionally not re-inserted into the used list!
+			size);
+	DEBUG("Buffer now at 0x%lu, size %lu", newbuf.addr, newbuf.size);
+	return (void *)newbuf.addr;
+}
+
 void ripc_buf_free(void *buf) {
 	DEBUG("Putting buffer %p into free list", buf);
 	mem_buf_t mem_buf =  used_buf_list_get(buf);
@@ -288,9 +298,11 @@ uint8_t ripc_reg_recv_window(void *rcv_addr, size_t rcv_size) {
 	}
 
 	// not registered yet
-	DEBUG("mr not found, registering memory area");
-	if (ripc_buf_register(rcv_addr, rcv_size))
+	DEBUG("mr not found, registering memory area (address %p)", rcv_addr);
+	if (ripc_buf_register(rcv_addr, rcv_size)) {
+		ERROR("memory registration failed (address %p)", rcv_addr);
 		return 1; //registration failed
+	}
 	DEBUG("Successfully registered memory area");
 	mem_buf = used_buf_list_get(rcv_addr);
         mem_buf.rcv_addr = rcv_addr;
