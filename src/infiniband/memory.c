@@ -102,9 +102,15 @@ mem_buf_t ripc_resize_recv_buf (mem_buf_t buf, size_t size) {
 }
 
 uint8_t ripc_buf_register(void *buf, size_t size) {
+	DEBUG("Attempting buffer registration at %p, size %u", buf, size);
+
+	if ( ! context.na.pd)
+		init();
+
 	mem_buf_t mem_buf =  used_buf_list_get(buf);
 	if (mem_buf.size != -1) { // && ((uint64_t)buf + size > (uint64_t)mem_buf.addr + mem_buf.size)) {
-                used_buf_list_add(mem_buf);
+		DEBUG("Buffer already registered at %p (requested: %p), size %u (requested: %u)", mem_buf.na->addr, buf, mem_buf.na->length, size);
+		used_buf_list_add(mem_buf);
 		return 0; //already registered
 	}
 	//if (mem_buf.size == -1 ) {
@@ -123,6 +129,7 @@ uint8_t ripc_buf_register(void *buf, size_t size) {
                 }
 
     //    }
+                DEBUG("Buffer registered successfully at %p, size %u", mem_buf.na->addr, mem_buf.na->length);
 	return 1; //registration unsuccessful
 }
 

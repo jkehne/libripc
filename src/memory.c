@@ -293,8 +293,11 @@ uint8_t ripc_reg_recv_window(void *rcv_addr, size_t rcv_size) {
                         recv_window_list_add(mem_buf);
 			return 0;
 		}
-		DEBUG("Receive buffer is too small, aborting");
-		return 1; //buffer too small, and overlapping buffers are not supported
+		DEBUG("Receive buffer is too small, unregistering (size: %u, requested: %u)", mem_buf.size, rcv_size);
+		mem_buf = used_buf_list_get(rcv_addr);
+		ibv_dereg_mr(mem_buf.na);
+		//ibv_dereg_mr(mem_buf.na);
+		//return 1; //buffer too small, and overlapping buffers are not supported
 	}
 
 	// not registered yet
