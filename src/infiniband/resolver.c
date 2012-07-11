@@ -628,6 +628,8 @@ void resolve(uint16_t src, uint16_t dest) {
 	struct resolver_msg *req_msg = (struct resolver_msg *)buf_mr->addr;
 	struct resolver_msg *msg;
 
+	pthread_mutex_lock(&resolver_mutex);
+
 	req_msg->type = RIPC_MSG_RESOLVE_REQ;
 	req_msg->dest_service_id = dest;
 	req_msg->src_service_id = src;
@@ -662,7 +664,6 @@ void resolve(uint16_t src, uint16_t dest) {
 	 * one request at a time in flight for now.
 	 * TODO: Come up with a better solution!
 	 */
-	pthread_mutex_lock(&resolver_mutex);
 retry:
 	DEBUG("About to actually post multicast send request");
 	ret = ibv_post_send(mcast_service_id.na.qp, &wr, &bad_wr);
