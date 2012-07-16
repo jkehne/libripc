@@ -656,6 +656,10 @@ ripc_receive(
 
 	pthread_mutex_lock(&services_mutex);
         
+	if (!context.services[service_id]) {
+		ERROR("Tried to receive on nonexistant service ID %u", service_id);
+		return -1;
+	}
 	cchannel = context.services[service_id]->na.cchannel;
 	recv_cq = context.services[service_id]->na.recv_cq;
 	qp = context.services[service_id]->na.qp;
