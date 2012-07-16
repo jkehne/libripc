@@ -337,13 +337,13 @@ void *start_responder(void *arg) {
 		return NULL;
 	}
 
-	if (ibv_query_port(context.na.device_context, 1, &port_attr)) {
+	if (ibv_query_port(context.na.device_context, context.na.port_num, &port_attr)) {
 		return NULL;
 	}
 	mcg_params.ib_devname = NULL;
 	mcg_params.sm_lid  = port_attr.sm_lid;
 	mcg_params.sm_sl   = port_attr.sm_sl;
-	mcg_params.ib_port = 1;
+	mcg_params.ib_port = context.na.port_num;
 
 	DEBUG("Prepared multicast descriptor item");
 
