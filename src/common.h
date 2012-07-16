@@ -80,7 +80,8 @@ enum conn_state {
 
 struct service_id {
 	uint16_t number;
-        struct netarch_service_id na;
+	bool is_multicast;
+    struct netarch_service_id na;
 };
 
 struct remote_context {

@@ -29,6 +29,7 @@ struct netarch_service_id {
 	struct ibv_cq *recv_cq;
 	struct ibv_qp *qp;
 	struct ibv_comp_channel *cchannel;
+	struct ibv_ah *mcast_ah;
 };
 
 struct netarch_remote_context {

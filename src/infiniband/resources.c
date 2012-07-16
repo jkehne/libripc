@@ -21,6 +21,89 @@ struct service_id rdma_service_id;
 pthread_mutex_t rdma_connect_mutex;
 pthread_t async_event_logger_thread;
 
+bool join_and_attach_multicast(struct service_id *service_id) {
+	struct mcast_parameters mcg_params;
+	struct ibv_port_attr port_attr;
+	uint8_t sid_high = service_id->number >> 8;
+	uint8_t sid_low = service_id->number & 0xff;
+
+	//mcg_params.user_mgid = NULL; //NULL means "default"
+						//			0xde  ad  be  ef  ca  fe
+	mcg_params.user_mgid = (char *)malloc(50);
+	sprintf(mcg_params.user_mgid, "255:1:0:0:222:173:190:239:%u:%u:0:0:0:0:0:1", sid_high, sid_low);
+	set_multicast_gid(&mcg_params, service_id->na.qp->qp_num, 1);
+
+	if (ibv_query_gid(context.na.device_context, 1, 0, &mcg_params.port_gid)) {
+			return false;
+	}
+
+	if (ibv_query_pkey(context.na.device_context, 1, DEF_PKEY_IDX, &mcg_params.pkey)) {
+		return false;
+	}
+
+	if (ibv_query_port(context.na.device_context, context.na.port_num, &port_attr)) {
+		return false;
+	}
+	mcg_params.ib_devname = NULL;
+	mcg_params.sm_lid  = port_attr.sm_lid;
+	mcg_params.sm_sl   = port_attr.sm_sl;
+	mcg_params.ib_port = 1;
+
+	DEBUG("Prepared multicast descriptor item for service ID %u", service_id->number);
+
+	/*
+	 * To do multicast, we first need to tell the fabric to create a multicast
+	 * group, and then attach ourselves to it. join_multicast_group uses libumad
+	 * to send the necessary management packets to create a multicast group
+	 * with a random LID.
+	 */
+	if (join_multicast_group(SUBN_ADM_METHOD_SET,&mcg_params)) {
+		ERROR("Failed to join multicast group for service ID %u", service_id->number);
+		return false;
+	}
+
+	DEBUG("Successfully created multicast group with LID %#x and GID %lx:%lx for service ID %u",
+			mcg_params.mlid,
+			mcg_params.mgid.global.subnet_prefix,
+			mcg_params.mgid.global.interface_id,
+			service_id->number);
+
+	/*
+	 * Now that our multicast group exists, we need to attach a QP (or more)
+	 * to it. Every QP attached to the group will receive all packets sent to
+	 * its LID.
+	 */
+	int ret;
+	if (ret =/*=*/ ibv_attach_mcast(service_id->na.qp,&mcg_params.mgid,mcg_params.mlid)) {
+		ERROR("Couldn't attach QP to multicast group for service ID %u (%s)", service_id->number, strerror(ret));
+		return false;
+	}
+
+	DEBUG("Successfully attached to multicast group for service ID %u", service_id->number);
+
+	//cache address handle used for sending requests
+	struct ibv_ah_attr ah_attr;
+	ah_attr.dlid = mcg_params.mlid;
+	ah_attr.is_global = 1;
+	ah_attr.sl = 0;
+	ah_attr.port_num = context.na.port_num;
+	ah_attr.grh.dgid = mcg_params.mgid;
+	ah_attr.grh.sgid_index = 0;
+	ah_attr.grh.hop_limit = 1;
+	ah_attr.src_path_bits = 0;
+
+	service_id->na.mcast_ah = ibv_create_ah(context.na.pd, &ah_attr);
+
+	if (!service_id->na.mcast_ah) {
+		ERROR("Failed to create resolver address handle");
+		return false;
+	}
+
+	DEBUG("Successfully created resolver address handle");
+
+	return true;
+}
+
 void alloc_queue_state(struct service_id *service_id) {
 	uint32_t i;
 
@@ -34,6 +117,8 @@ void alloc_queue_state(struct service_id *service_id) {
 		} else {
 			DEBUG("Allocated completion event channel");
 		}
+	} else {
+		DEBUG("Skipping allocation of completion event channel for service ID %u", service_id->number);
 	}
 
 	service_id->na.recv_cq = ibv_create_cq(
@@ -93,7 +178,7 @@ void alloc_queue_state(struct service_id *service_id) {
 	attr.qp_state = IBV_QPS_INIT;
 	attr.pkey_index = 0;
 	attr.port_num = context.na.port_num;
-	attr.qkey = service_id->number;
+	attr.qkey = service_id->is_multicast ? 0xffff : service_id->number;
 
 	if (ibv_modify_qp(service_id->na.qp,
                           &attr,
@@ -132,6 +217,10 @@ void alloc_queue_state(struct service_id *service_id) {
 	DEBUG("qkey of QP %u is %#x", (service_id->na.qp)->qp_num, attr.qkey);
 #endif
 
+	if (service_id->is_multicast)
+		if (!join_and_attach_multicast(service_id))
+			goto error;
+
 	for (i = 0; i < NUM_RECV_BUFFERS; ++i) {
 		post_new_recv_buf(service_id->na.qp);
 	}
@@ -154,6 +243,10 @@ error:
 	if (service_id->na.cchannel) {
 		ibv_destroy_comp_channel(service_id->na.cchannel);
 		service_id->na.cchannel = NULL;
+	}
+	if (service_id->na.mcast_ah) {
+		ibv_destroy_ah(service_id->na.mcast_ah);
+		service_id->na.mcast_ah = NULL;
 	}
 }
 

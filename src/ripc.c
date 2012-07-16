@@ -82,6 +82,7 @@ uint8_t ripc_register_service_id(int service_id) {
 
 	if (context.services[service_id] != NULL) {
 		pthread_mutex_unlock(&services_mutex);
+		DEBUG("Tried to allocate service ID %u which was already allocated");
 		return false; //already allocated
 	}
 
@@ -96,4 +97,34 @@ uint8_t ripc_register_service_id(int service_id) {
 
 	pthread_mutex_unlock(&services_mutex);
 	return true;
+}
+
+uint8_t ripc_register_multicast_service_id(int service_id) {
+	init();
+	DEBUG("Allocating multicast service ID %u", service_id);
+
+	struct service_id *service_context;
+	uint32_t i;
+
+	pthread_mutex_lock(&services_mutex);
+
+	if (context.services[service_id] != NULL) {
+		pthread_mutex_unlock(&services_mutex);
+		DEBUG("Tried to allocate service ID %u which was already allocated");
+		return false; //already allocated
+	}
+
+	context.services[service_id] =
+		(struct service_id *)malloc(sizeof(struct service_id));
+	memset(context.services[service_id],0,sizeof(struct service_id));
+	service_context = context.services[service_id];
+
+	service_context->number = service_id;
+	service_context->is_multicast = true;
+
+	alloc_queue_state(service_context);
+
+	pthread_mutex_unlock(&services_mutex);
+	return true;
+
 }

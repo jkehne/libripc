@@ -32,6 +32,7 @@ uint8_t init(void);
 
 uint16_t ripc_register_random_service_id(void);
 uint8_t ripc_register_service_id(int);
+uint8_t ripc_register_multicast_service_id(int);
 
 void *ripc_buf_alloc(size_t size);
 void *ripc_buf_realloc(void *buf, size_t size);

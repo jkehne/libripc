@@ -285,9 +285,10 @@ ripc_send_short(
 		return_bufs_msg[i].rkey = mem_buf.na->rkey;
 	}
 
-	if (!context.remotes[dest])
+	if (!context.remotes[dest] && !context.services[src]->is_multicast) {
 		resolve(src, dest);
-	assert(context.remotes[dest]);
+		assert(context.remotes[dest]);
+	}
 
 	struct ibv_send_wr wr;
 	wr.next = NULL;
@@ -295,11 +296,17 @@ ripc_send_short(
 	wr.num_sge = num_items + 1;
 	wr.sg_list = sge;
 	wr.wr_id = 0xdeadbeef; //TODO: Make this a counter?
-	wr.wr.ud.remote_qkey = (uint32_t)dest;
-	pthread_mutex_lock(&remotes_mutex);
-	wr.wr.ud.ah = context.remotes[dest]->na.ah;
-	wr.wr.ud.remote_qpn = context.remotes[dest]->qp_num;
-	pthread_mutex_unlock(&remotes_mutex);
+	if (context.services[src]->is_multicast) {
+		wr.wr.ud.remote_qkey = 0xffff;
+		wr.wr.ud.remote_qpn = 0xffffff;
+		wr.wr.ud.ah = context.services[src]->na.mcast_ah;
+	} else {
+		wr.wr.ud.remote_qkey = (uint32_t)dest;
+		pthread_mutex_lock(&remotes_mutex);
+		wr.wr.ud.ah = context.remotes[dest]->na.ah;
+		wr.wr.ud.remote_qpn = context.remotes[dest]->qp_num;
+		pthread_mutex_unlock(&remotes_mutex);
+	}
 	wr.send_flags = IBV_SEND_SIGNALED;
 
 	DEBUG("Sending message containing %u items to service %u, qpn %u using qkey %d",
@@ -363,6 +370,11 @@ ripc_send_long(
 		uint32_t num_return_bufs) {
 
 	DEBUG("Starting long send: %u -> %u (%u items)", src, dest, num_items);
+
+	if (context.services[src]->is_multicast) {
+		ERROR("Multicast long send is currently unsupported");
+		return 1;
+	}
 
 	if (( ! context.remotes[dest]) ||
 			(context.remotes[dest]->state != RIPC_RDMA_ESTABLISHED)) {
