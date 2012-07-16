@@ -206,12 +206,19 @@ ripc_send_short(
 
 		if (mem_buf.size == -1) { //not registered yet
 			DEBUG("mr not found in cache, creating new one");
-			mem_buf = ripc_alloc_recv_buf(length[i]);
-			tmp_buf = mem_buf.na->addr;
-			memcpy(tmp_buf,buf[i],length[i]);
+			if (! ripc_buf_register(buf[i], length[i])) {
+				mem_buf = used_buf_list_get(buf[i]);
+				assert(mem_buf.size > 0);
+				used_buf_list_add(mem_buf);
+				tmp_buf = buf[i];
+			} else {
+				mem_buf = ripc_alloc_recv_buf(length[i]);
+				tmp_buf = mem_buf.na->addr;
+				memcpy(tmp_buf,buf[i],length[i]);
+			}
 		} else {
 			DEBUG("Found mr in cache!");
-                        used_buf_list_add(mem_buf);
+			used_buf_list_add(mem_buf);
 			tmp_buf = buf[i];
 		}
 
