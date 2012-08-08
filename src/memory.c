@@ -273,6 +273,8 @@ uint8_t ripc_reg_recv_window(void *rcv_addr, size_t rcv_size) {
 	mem_buf_t mem_buf;
 	assert(rcv_size > 0);
 
+	DEBUG("Attempting receive window registration at %p, size %u", rcv_addr, rcv_size);
+
 	if (rcv_addr == NULL) { //the user wants us to specify the buffer
 		DEBUG("No rcv_addr specified, allocating new buffer");
 		mem_buf = ripc_alloc_recv_buf(rcv_size);
@@ -284,8 +286,8 @@ uint8_t ripc_reg_recv_window(void *rcv_addr, size_t rcv_size) {
 
 	mem_buf = used_buf_list_get(rcv_addr); //are we registered yet?
 	if (mem_buf.size != -1) {
-		DEBUG("Found buffer mr: Rcv_Addr address %p, size %zu",
-                      (void *) mem_buf.addr, mem_buf.size);
+		DEBUG("Found buffer mr: Rcv_Addr address %p, size %zu, lkey %#x",
+                      (void *) mem_buf.addr, mem_buf.size, mem_buf.na->lkey);
                 mem_buf.rcv_addr = rcv_addr;
                 mem_buf.rcv_size = rcv_size;
                 used_buf_list_add(mem_buf);

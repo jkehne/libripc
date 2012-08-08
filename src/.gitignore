@@ -12,3 +12,4 @@
 /resources.lo
 /resolver.lo
 /autom4te.cache/**.o
+/build

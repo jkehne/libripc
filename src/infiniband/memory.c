@@ -125,11 +125,11 @@ uint8_t ripc_buf_register(void *buf, size_t size) {
                         mem_buf.addr = (uint64_t) mem_buf.na->addr;
                         mem_buf.size = mem_buf.na->length;
                         used_buf_list_add(mem_buf);
+                        DEBUG("Buffer registered successfully at %p, size %u", mem_buf.na->addr, mem_buf.na->length);
                         return 0; //registration successful
                 }
 
     //    }
-                DEBUG("Buffer registered successfully at %p, size %u", mem_buf.na->addr, mem_buf.na->length);
 	return 1; //registration unsuccessful
 }
 
