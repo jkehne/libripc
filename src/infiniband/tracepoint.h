@@ -37,7 +37,7 @@ TRACEPOINT_EVENT(
 		libripc_ibv, /* provider name */
 		reg_mr, /* tracepoint name */
 		TP_ARGS(unsigned long, pd, unsigned long, addr,
-			unsigned long, length, int access,
+			unsigned long, length, int, access,
 			unsigned long, mr),
 		TP_FIELDS(
 			ctf_integer_hex(unsigned long, pd, pd)
@@ -110,7 +110,7 @@ TRACEPOINT_EVENT(
 TRACEPOINT_EVENT(
 		libripc_ibv,
 		poll_cq,
-		TP_ARGS(unsigned long, cq, int, num_entries, int result),
+		TP_ARGS(unsigned long, cq, int, num_entries, int, result),
 		TP_FIELDS(
 			ctf_integer_hex(unsigned long, cq, cq)
 			ctf_integer(int, num_entries, num_entries)
@@ -121,7 +121,7 @@ TRACEPOINT_EVENT(
 TRACEPOINT_EVENT(
 		libripc_ibv,
 		post_send,
-		TP_ARGS(unsigned long, qp, unsigned long, wr, int status),
+		TP_ARGS(unsigned long, qp, unsigned long, wr, int, status),
 		TP_FIELDS(
 			ctf_integer_hex(unsigned long, qp, qp)
 			ctf_integer_hex(unsigned long, wr, wr)
@@ -132,7 +132,7 @@ TRACEPOINT_EVENT(
 TRACEPOINT_EVENT(
 		libripc_ibv,
 		post_recv,
-		TP_ARGS(unsigned long, qp, unsigned long, wr, int status),
+		TP_ARGS(unsigned long, qp, unsigned long, wr, int, status),
 		TP_FIELDS(
 			ctf_integer_hex(unsigned long, qp, qp)
 			ctf_integer_hex(unsigned long, wr, wr)

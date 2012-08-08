@@ -18,11 +18,15 @@
 #ifndef TRACE_HOOKS_H_
 #define TRACE_HOOKS_H_
 
+#include "config.h"
+
 //#define ENABLE_IBV_TRACING
 
-#ifdef ENABLE_IBV_TRACING
+//#ifdef ENABLE_IBV_TRACING
+#ifdef HAVE_TRACING
 
 #include <infiniband/verbs.h>
+#include "tracepoint.h"
 // functions that actually call tracepoints and verbs functions
 /*
 struct ibv_device **hooked_ibv_get_device_list(int *num_devices);
@@ -74,7 +78,7 @@ static inline struct ibv_mr *hooked_ibv_reg_mr(struct ibv_pd *pd, void *addr,
 			  size_t length, int access) {
 				  
 	struct ibv_mr * mr = hooked_ibv_reg_mr(pd, addr, length, access);
-	tracepoint(libripc_ibv, reg_mr, pd, addr, lenth, access, mr);
+	tracepoint(libripc_ibv, reg_mr, pd, addr, length, access, mr);
 	return mr;
 }
 

@@ -111,6 +111,21 @@ AC_ARG_ENABLE([debug],AS_HELP_STRING([--enable-debug], [enable debug output (ove
 AS_IF([test "x$enable_debug" = "xyes"], [AC_DEFINE([HAVE_DEBUG], [1], [Define to 1 if debug output should be enabled.])])
 AS_IF([test "x$enable_debug" = "xyes"], [CFLAGS="-O0 -ggdb3"])
 
+AC_ARG_ENABLE([tracing],AS_HELP_STRING([--enable-tracing], [enable tracing using liblttng]))
+AS_IF([test "x$enable_tracing" = "xyes"], [
+    AC_CHECK_LIB([dl],[dlopen],[],[
+        echo "Error: Libdl not found!"
+        exit -1
+    ])
+
+    AC_CHECK_LIB([lttng-ust],[ust_safe_vfprintf],[],[
+        echo "Error: Liblttng-ust not found!"
+        exit -1
+    ])
+
+	AC_DEFINE([HAVE_TRACING], [1], [Define to 1 if tracing should be enabled.])
+])
+
 AC_CONFIG_HEADERS([src/config.h clients/config.h])
 AC_CONFIG_FILES(Makefile src/Makefile clients/Makefile src/infiniband/Makefile src/bgp/Makefile src/local/Makefile)
 AC_OUTPUT
