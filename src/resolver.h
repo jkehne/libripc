@@ -19,15 +19,21 @@
 
 #include "config.h"
 #include "common.h"
+#ifdef NETARCH_INFINIBAND
+#include <infiniband/resolver.h>
+#endif
+#ifdef NETARCH_BGP
+#include <bgp/resolver.h>
+#endif
+#ifdef NETARCH_LOCAL
+#include <local/resolver.h>
+#endif
 
 struct resolver_msg {
 	enum msg_type type;
 	uint16_t dest_service_id;
 	uint16_t src_service_id;
-	uint16_t lid;
-	uint32_t service_qpn;
-	uint32_t response_qpn;
-	uint32_t resolver_qpn;
+	struct netarch_resolver_msg na;
 };
 
 extern pthread_mutex_t resolver_mutex;

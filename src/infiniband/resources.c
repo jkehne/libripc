@@ -173,7 +173,7 @@ void create_rdma_connection(uint16_t src, uint16_t dest) {
         */
        if (( ! context.remotes[dest])
     		   || ( ! context.remotes[dest]->na.ah)
-    		   || ( ! context.remotes[dest]->resolver_qp))
+    		   || ( ! context.remotes[dest]->na.resolver_qp))
     	   resolve(src, dest);
 
        assert(context.remotes[dest]);
@@ -286,12 +286,12 @@ void create_rdma_connection(uint16_t src, uint16_t dest) {
        struct ibv_mr *connect_mr = ripc_alloc_recv_buf(sizeof(struct rdma_connect_msg)).na;
        struct rdma_connect_msg *msg = (struct rdma_connect_msg *)connect_mr->addr;
        msg->type = RIPC_RDMA_CONN_REQ;
-       msg->qpn = remote->na.rdma_qp->qp_num;
-       msg->psn = psn;
+       msg->na.qpn = remote->na.rdma_qp->qp_num;
+       msg->na.psn = psn;
        msg->src_service_id = src;
        msg->dest_service_id = dest;
-       msg->lid = context.na.lid;
-       msg->response_qpn = rdma_service_id.na.qp->qp_num;
+       msg->na.lid = context.na.lid;
+       msg->na.response_qpn = rdma_service_id.na.qp->qp_num;
 
        struct ibv_sge sge;
        sge.addr = (uint64_t)msg;
@@ -306,7 +306,7 @@ void create_rdma_connection(uint16_t src, uint16_t dest) {
        wr.sg_list = &sge;
        wr.wr_id = 0xdeadbeef;
        wr.wr.ud.ah = remote->na.ah;
-       wr.wr.ud.remote_qpn = remote->resolver_qp;
+       wr.wr.ud.remote_qpn = remote->na.resolver_qp;
        wr.wr.ud.remote_qkey = 0xffff;
 
        struct ibv_send_wr *bad_wr = NULL;
@@ -366,12 +366,12 @@ retry:
 
        attr.qp_state = IBV_QPS_RTR;
        attr.path_mtu = IBV_MTU_2048;
-       attr.dest_qp_num = response_msg->qpn;
-       attr.rq_psn = response_msg->psn;
+       attr.dest_qp_num = response_msg->na.qpn;
+       attr.rq_psn = response_msg->na.psn;
        attr.max_dest_rd_atomic = 1;
        attr.min_rnr_timer = 12;
        attr.ah_attr.is_global = 0;
-       attr.ah_attr.dlid = response_msg->lid;
+       attr.ah_attr.dlid = response_msg->na.lid;
        attr.ah_attr.sl = 0;
        attr.ah_attr.src_path_bits = 0;
        attr.ah_attr.port_num = context.na.port_num;

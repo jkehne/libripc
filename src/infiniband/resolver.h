@@ -14,14 +14,18 @@
  *  You should have received a copy of the GNU Lesser General Public License
  *  along with libRIPC.  If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef RESOURCES_H_
-#include "../resources.h"
+#ifndef RESOLVER_H_
+#include "../resolver.h"
 #endif
 
-#ifndef __BGP__RESOURCES_H__
-#define __BGP__RESOURCES_H__
+#ifndef __INFINIBAND__RESOLVER_H__
+#define __INFINIBAND__RESOLVER_H__
 
-struct netarch_rdma_connect_msg {
+struct netarch_resolver_msg {
+	uint16_t lid;
+	uint32_t service_qpn;
+	uint32_t response_qpn;
+	uint32_t resolver_qpn;
 };
 
-#endif /* !__BGP__RESOURCES_H__ */
+#endif /* !__INFINIBAND__RESOLVER_H__ */
