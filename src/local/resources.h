@@ -21,4 +21,7 @@
 #ifndef __LOCAL__RESOURCES_H__
 #define __LOCAL__RESOURCES_H__
 
+struct netarch_rdma_connect_msg {
+};
+
 #endif /* !__LOCAL__RESOURCES_H__ */

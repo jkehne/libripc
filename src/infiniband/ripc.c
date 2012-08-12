@@ -280,7 +280,7 @@ ripc_send_short(
 	wr.wr.ud.remote_qkey = (uint32_t)dest;
 	pthread_mutex_lock(&remotes_mutex);
 	wr.wr.ud.ah = context.remotes[dest]->na.ah;
-	wr.wr.ud.remote_qpn = context.remotes[dest]->qp_num;
+	wr.wr.ud.remote_qpn = context.remotes[dest]->na.qp_num;
 	pthread_mutex_unlock(&remotes_mutex);
 	wr.send_flags = IBV_SEND_SIGNALED;
 
@@ -560,7 +560,7 @@ ripc_send_long(
 
 	pthread_mutex_lock(&remotes_mutex);
 	wr.wr.ud.ah = context.remotes[dest]->na.ah;
-	wr.wr.ud.remote_qpn = context.remotes[dest]->qp_num;
+	wr.wr.ud.remote_qpn = context.remotes[dest]->na.qp_num;
 	pthread_mutex_unlock(&remotes_mutex);
 	wr.wr.ud.remote_qkey = dest;
 
