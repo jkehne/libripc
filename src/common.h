@@ -39,6 +39,7 @@ typedef bool _Bool;
 #include <stdlib.h>
 #include <stdint.h>
 #include <pthread.h>
+#include <sys/syscall.h>
 #ifdef NETARCH_INFINIBAND
 #include <infiniband/common.h>
 #endif
@@ -51,9 +52,8 @@ typedef bool _Bool;
 
 #include <memory.h>
 
-
-#define ERROR(...) do { fprintf(stderr, "Thread %d: %s() (%s, line %u): ", (int) pthread_self(), __PRETTY_FUNCTION__, __FILE__, __LINE__); fprintf(stderr, __VA_ARGS__); fprintf(stderr,"\n"); } while (0)
-#define panic(...) do { fprintf(stderr, "Thread %d: %s() (%s, line %u): FATAL: ", (int) pthread_self(), __PRETTY_FUNCTION__, __FILE__, __LINE__); fprintf(stderr, __VA_ARGS__); fprintf(stderr,"\n"); exit(EXIT_FAILURE); } while (0)
+#define ERROR(...) do { fprintf(stderr, "Thread %u: %s() (%s, line %u): ", (uint32_t)syscall(SYS_gettid), __PRETTY_FUNCTION__, __FILE__, __LINE__); fprintf(stderr, __VA_ARGS__); fprintf(stderr,"\n"); } while (0)
+#define panic(...) do { fprintf(stderr, "Thread %u: %s() (%s, line %u): FATAL: ", (int) pthread_self(), __PRETTY_FUNCTION__, __FILE__, __LINE__); fprintf(stderr, __VA_ARGS__); fprintf(stderr,"\n"); exit(EXIT_FAILURE); } while (0)
 
 #ifdef HAVE_DEBUG
 #define DEBUG(...) ERROR(__VA_ARGS__)

@@ -290,6 +290,10 @@ reply:
 
     if (wc.status != IBV_WC_SUCCESS) {
  	   ERROR("Failed to send rdma connect request: %s", ibv_wc_status_str(wc.status));
+ 	   ERROR("Failed WC was:");
+ 	   dump_wc(wc);
+ 	   ERROR("Failed WR was:");
+ 	   dump_wr(wr, true);
  	   assert(wc.status == IBV_WC_SUCCESS);
     }
 
@@ -444,9 +448,11 @@ void *start_responder(void *arg) {
 		}
 
 		if (wc.status != IBV_WC_SUCCESS) {
-			ERROR("Failed to send rdma connect request: %s", ibv_wc_status_str(wc.status));
-			assert(wc.status == IBV_WC_SUCCESS);
-		}
+		   ERROR("Failed to send rdma connect request: %s", ibv_wc_status_str(wc.status));
+		   ERROR("Failed WC was:");
+		   dump_wc(wc);
+		   assert(wc.status == IBV_WC_SUCCESS);
+	    }
 
 		wr = (struct ibv_recv_wr *) wc.wr_id;
 		msg = (struct resolver_msg *)(wr->sg_list->addr + 40);
@@ -571,8 +577,15 @@ void *start_responder(void *arg) {
 		 */
 		if (for_us) {
 			while (!ibv_poll_cq(unicast_service_id.na.send_cq, 1, &wc)) { /* wait */ }
-			DEBUG("Got send completion, result: %s", ibv_wc_status_str(wc.status));
-			assert(wc.status == IBV_WC_SUCCESS);
+			if (wc.status != IBV_WC_SUCCESS) {
+			   ERROR("Failed to send rdma connect request: %s", ibv_wc_status_str(wc.status));
+			   ERROR("Failed WC was:");
+			   dump_wc(wc);
+			   ERROR("Failed WR was:");
+			   dump_wr(resp_wr, true);
+			   assert(wc.status == IBV_WC_SUCCESS);
+		    } else
+		    	DEBUG("Got send completion, result: %s", ibv_wc_status_str(wc.status));
 
 			//we won't be needing the response ah for a while
 			ibv_destroy_ah(resp_wr.wr.ud.ah);
@@ -685,6 +698,10 @@ retry:
 
     if (wc.status != IBV_WC_SUCCESS) {
  	   ERROR("Failed to send rdma connect request: %s", ibv_wc_status_str(wc.status));
+ 	   ERROR("Failed WC was:");
+ 	   dump_wc(wc);
+ 	   ERROR("Failed WR was:");
+ 	   dump_wr(wr, true);
  	   assert(wc.status == IBV_WC_SUCCESS);
     }
 
@@ -712,8 +729,10 @@ keep_waiting:
 			goto retry;
 	}
 
-    if (wc.status != IBV_WC_SUCCESS) {
+	if (wc.status != IBV_WC_SUCCESS) {
  	   ERROR("Failed to send rdma connect request: %s", ibv_wc_status_str(wc.status));
+ 	   ERROR("Failed WC was:");
+ 	   dump_wc(wc);
  	   assert(wc.status == IBV_WC_SUCCESS);
     }
 
@@ -748,6 +767,7 @@ keep_waiting:
 	ah_attr.port_num = context.na.port_num;
 	ah_attr.sl = 7;
 	tmp_ah = ibv_create_ah(context.na.pd, &ah_attr);
+	DEBUG("Created ah %#x for remote %u", tmp_ah->handle, dest);
 
 	pthread_mutex_lock(&remotes_mutex);
 

@@ -24,6 +24,8 @@
 #include <infiniband/multicast_resources.h>
 
 void dump_qp_state(struct ibv_qp *qp);
+void dump_wr(struct ibv_send_wr wr, bool ud);
+void dump_wc(struct ibv_wc wc);
 
 void create_rdma_connection(
                uint16_t src,

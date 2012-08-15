@@ -347,6 +347,10 @@ ripc_send_short(
 	DEBUG("received completion message!");
 	if (wc.status) {
 		ERROR("Send result: %s", ibv_wc_status_str(wc.status));
+		ERROR("Failed WR was:");
+		dump_wr(wr, true);
+		ERROR("Failed WC was:");
+		dump_wc(wc);
 		ERROR("QP state: %d", dest_qp->state);
 	}
 	DEBUG("Result: %s", ibv_wc_status_str(wc.status));
@@ -524,6 +528,10 @@ ripc_send_long(
 		DEBUG("received completion message!");
 		if (rdma_wc.status) {
 			ERROR("Send result: %s", ibv_wc_status_str(rdma_wc.status));
+	    	ERROR("Failed WR was:");
+	    	dump_wr(rdma_wr, false);
+	    	ERROR("Failed WC was:");
+	    	dump_wc(rdma_wc);
 			ERROR("QP state: %d", context.remotes[dest]->na.rdma_qp->state);
 			free(return_mem_buf.na);
 			goto retry; //return buffer was invalid, but maybe the next one will do
@@ -638,6 +646,10 @@ ripc_send_long(
 	DEBUG("received completion message!");
 	if (wc.status) {
 		ERROR("Send result: %s", ibv_wc_status_str(wc.status));
+    	ERROR("Failed WR was:");
+    	dump_wr(wr, true);
+    	ERROR("Failed WC was:");
+    	dump_wc(wc);
 		ERROR("QP state: %d", dest_qp->state);
 	}
 	DEBUG("Result: %s", ibv_wc_status_str(wc.status));
@@ -701,6 +713,8 @@ ripc_receive(
 
     if (wc.status != IBV_WC_SUCCESS) {
  	   ERROR("Failed to send rdma connect request: %s", ibv_wc_status_str(wc.status));
+ 	   ERROR("Failed WC was:");
+ 	   dump_wc(wc);
  	   assert(wc.status == IBV_WC_SUCCESS);
     }
 
@@ -886,6 +900,10 @@ ripc_receive(
 		DEBUG("received completion message!");
 		if (rdma_wc.status) {
 			ERROR("Send result: %s", ibv_wc_status_str(rdma_wc.status));
+	    	ERROR("Failed WR was:");
+	    	dump_wr(rdma_wr, false);
+	    	ERROR("Failed WC was:");
+	    	dump_wc(rdma_wc);
 			ERROR("QP state: %d", context.remotes[hdr->from]->na.rdma_qp->state);
 		} else {
 			DEBUG("Result: %s", ibv_wc_status_str(rdma_wc.status));
@@ -914,7 +932,7 @@ ripc_receive(
 			 * Our buffer lists store MRs by default, so take a little detour
 			 * here to make them happy.
 			 */
-                        mem_buf.na = malloc(sizeof(struct ibv_mr));
+            mem_buf.na = malloc(sizeof(struct ibv_mr));
 			memset(mem_buf.na, 0, sizeof(struct ibv_mr));
 
 			mem_buf.na->addr = (void *)return_bufs[i].addr;

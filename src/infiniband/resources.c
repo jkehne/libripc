@@ -427,6 +427,10 @@ retry:
 
        if (wc.status != IBV_WC_SUCCESS) {
     	   ERROR("Failed to send rdma connect request: %s", ibv_wc_status_str(wc.status));
+    	   ERROR("Failed WC was:");
+    	   dump_wc(wc);
+    	   ERROR("Failed WR was:");
+    	   dump_wr(wr, true);
     	   assert(wc.status == IBV_WC_SUCCESS);
        }
 
@@ -442,6 +446,8 @@ retry:
 
        if (wc.status != IBV_WC_SUCCESS) {
     	   ERROR("Failed to send rdma connect request: %s", ibv_wc_status_str(wc.status));
+    	   ERROR("Failed WC was:");
+    	   dump_wc(wc);
     	   assert(wc.status == IBV_WC_SUCCESS);
        }
 
@@ -580,13 +586,50 @@ void dump_qp_state(struct ibv_qp *qp) {
 	ERROR("timeout: %u", attr.timeout);
 }
 
+void dump_wr(struct ibv_send_wr wr, bool ud) {
+	ERROR("WR ID: %#lx", wr.wr_id);
+	ERROR("Opcode %u", wr.opcode);
+	ERROR("Flags: %#x", wr.send_flags);
+	ERROR("Immediate value: %#x", wr.imm_data);
+	switch(wr.opcode) {
+	case IBV_WR_RDMA_WRITE:
+	case IBV_WR_RDMA_WRITE_WITH_IMM:
+	case IBV_WR_RDMA_READ:
+		ERROR("Remote address: %#lx", wr.wr.rdma.remote_addr);
+		ERROR("Remote access key: %#x", wr.wr.rdma.rkey);
+		break;
+	//TODO: Atomics
+	}
 
+	if (ud) {
+		if (wr.wr.ud.ah)
+			ERROR("AH Handle: %#x", wr.wr.ud.ah->handle);
+		else
+			ERROR("AH is NULL!");
+	}
 
+	ERROR("WR contains %u SGEs", wr.num_sge);
+	int i;
+	for (i = 0; i < wr.num_sge; ++i) {
+		ERROR("SGE %u Address: %#lx", i, (wr.sg_list + i)->addr);
+		ERROR("SGE %u Length: %u", i, (wr.sg_list + i)->length);
+		ERROR("SGE %u Local access key: %#x", i, (wr.sg_list + i)->lkey);
+	}
 
+}
 
-
-
-
-
-
-
+void dump_wc(struct ibv_wc wc) {
+	ERROR("WR ID: %#lx", wc.wr_id);
+	ERROR("Opcode: %u", wc.opcode);
+	ERROR("Flags: %#x", wc.wc_flags);
+	ERROR("Status: %s", ibv_wc_status_str(wc.status));
+	ERROR("Vendor error: %#x", wc.vendor_err);
+	ERROR("Source qp: %u", wc.src_qp);
+	ERROR("Source LID: %u", wc.slid);
+	ERROR("QP Number: %u", wc.qp_num);
+	ERROR("Service Level: %u", wc.sl);
+	ERROR("Pkey index: %u", wc.pkey_index);
+	ERROR("Immediate value: %#x", wc.imm_data);
+	ERROR("Destination LID path bits: %#x", wc.dlid_path_bits);
+	ERROR("Byte length: %u", wc.byte_len);
+}
