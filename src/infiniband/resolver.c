@@ -288,7 +288,10 @@ reply:
 
 	while ( ! ibv_poll_cq(unicast_service_id.na.send_cq, 1, &wc)) { /* wait */ }
 
-	assert(wc.status == IBV_WC_SUCCESS);
+    if (wc.status != IBV_WC_SUCCESS) {
+ 	   ERROR("Failed to send rdma connect request: %s", ibv_wc_status_str(wc.status));
+ 	   assert(wc.status == IBV_WC_SUCCESS);
+    }
 
 	//msg is freed in caller!
 	return;
@@ -440,7 +443,10 @@ void *start_responder(void *arg) {
 			ibv_req_notify_cq(recvd_on, 0);
 		}
 
-		 assert(wc.status == IBV_WC_SUCCESS);
+		if (wc.status != IBV_WC_SUCCESS) {
+			ERROR("Failed to send rdma connect request: %s", ibv_wc_status_str(wc.status));
+			assert(wc.status == IBV_WC_SUCCESS);
+		}
 
 		wr = (struct ibv_recv_wr *) wc.wr_id;
 		msg = (struct resolver_msg *)(wr->sg_list->addr + 40);
@@ -677,7 +683,10 @@ retry:
 
 	while ( ! ibv_poll_cq(mcast_service_id.na.send_cq, 1, &wc)) { /* wait */ }
 
-	assert(wc.status == IBV_WC_SUCCESS);
+    if (wc.status != IBV_WC_SUCCESS) {
+ 	   ERROR("Failed to send rdma connect request: %s", ibv_wc_status_str(wc.status));
+ 	   assert(wc.status == IBV_WC_SUCCESS);
+    }
 
 	DEBUG("Got multicast send completion");
 
@@ -703,7 +712,10 @@ keep_waiting:
 			goto retry;
 	}
 
-	assert(wc.status == IBV_WC_SUCCESS);
+    if (wc.status != IBV_WC_SUCCESS) {
+ 	   ERROR("Failed to send rdma connect request: %s", ibv_wc_status_str(wc.status));
+ 	   assert(wc.status == IBV_WC_SUCCESS);
+    }
 
 	post_new_recv_buf(unicast_service_id.na.qp);
 

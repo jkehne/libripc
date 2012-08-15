@@ -699,7 +699,10 @@ ripc_receive(
 
 	//alarm(0);
 
-	assert(wc.status == IBV_WC_SUCCESS);
+    if (wc.status != IBV_WC_SUCCESS) {
+ 	   ERROR("Failed to send rdma connect request: %s", ibv_wc_status_str(wc.status));
+ 	   assert(wc.status == IBV_WC_SUCCESS);
+    }
 
 	DEBUG("received!");
 

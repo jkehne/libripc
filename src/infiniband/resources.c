@@ -425,7 +425,10 @@ retry:
 
        while ( ! ibv_poll_cq(rdma_service_id.na.send_cq, 1, &wc)) { /* wait for send completion */ }
 
-       assert(wc.status == IBV_WC_SUCCESS);
+       if (wc.status != IBV_WC_SUCCESS) {
+    	   ERROR("Failed to send rdma connect request: %s", ibv_wc_status_str(wc.status));
+    	   assert(wc.status == IBV_WC_SUCCESS);
+       }
 
        DEBUG("Got send completion for connect request");
 
@@ -437,7 +440,10 @@ retry:
     	   }
        }
 
-       assert(wc.status == IBV_WC_SUCCESS);
+       if (wc.status != IBV_WC_SUCCESS) {
+    	   ERROR("Failed to send rdma connect request: %s", ibv_wc_status_str(wc.status));
+    	   assert(wc.status == IBV_WC_SUCCESS);
+       }
 
        post_new_recv_buf(rdma_service_id.na.qp);
 
