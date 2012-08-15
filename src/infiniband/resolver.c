@@ -380,7 +380,7 @@ void *start_responder(void *arg) {
 	struct ibv_ah_attr ah_attr;
 	ah_attr.dlid = mcg_params.mlid;
 	ah_attr.is_global = 1;
-	ah_attr.sl = 0;
+	ah_attr.sl = 7;
 	ah_attr.port_num = context.na.port_num;
 	ah_attr.grh.dgid = mcg_params.mgid;
 	ah_attr.grh.sgid_index = 0;
@@ -533,6 +533,7 @@ void *start_responder(void *arg) {
 
 			ah_attr.dlid = msg->lid;
 			ah_attr.port_num = context.na.port_num;
+			ah_attr.sl = 7;
 
 			context.remotes[msg->src_service_id]->na.ah =
 					ibv_create_ah(context.na.pd, &ah_attr);
@@ -733,6 +734,7 @@ keep_waiting:
 	 //got the info we wanted, now feed it to the cache
 	ah_attr.dlid = msg->lid;
 	ah_attr.port_num = context.na.port_num;
+	ah_attr.sl = 7;
 	tmp_ah = ibv_create_ah(context.na.pd, &ah_attr);
 
 	pthread_mutex_lock(&remotes_mutex);
