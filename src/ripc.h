@@ -39,6 +39,7 @@ void *ripc_buf_realloc(void *buf, size_t size);
 void ripc_buf_free(void *buf);
 uint8_t ripc_reg_recv_window(void *base, size_t size);
 uint8_t ripc_buf_register(void *buf, size_t size);
+uint8_t ripc_buf_unregister(void *buf);
 
 uint8_t ripc_send_short(
 		uint16_t src,

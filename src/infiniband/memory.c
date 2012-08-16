@@ -133,6 +133,21 @@ uint8_t ripc_buf_register(void *buf, size_t size) {
 	return 1; //registration unsuccessful
 }
 
+uint8_t ripc_buf_unregister(void *buf) {
+	DEBUG("Attempting buffer deregistration at address %p", buf);
+
+	mem_buf_t mem_buf = used_buf_list_get(buf);
+	if (mem_buf.size == -1) {
+		DEBUG("Buffer %p does not exist", buf);
+		return 0;
+	}
+	int ret = ibv_dereg_mr(mem_buf.na);
+	if(ret) {
+		ERROR("Failed to deregister buffer at %p: %s", buf, strerror(ret));
+		return 0;
+	}
+	return 1;
+}
 
 void post_new_recv_buf(struct ibv_qp *qp) {
 	struct ibv_sge *list;

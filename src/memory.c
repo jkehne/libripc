@@ -272,7 +272,7 @@ void ripc_buf_free(void *buf) {
 uint8_t ripc_reg_recv_window(void *rcv_addr, size_t rcv_size) {
 	mem_buf_t mem_buf;
 	assert(rcv_size > 0);
-
+retry:
 	DEBUG("Attempting receive window registration at %p, size %u", rcv_addr, rcv_size);
 
 	if (rcv_addr == NULL) { //the user wants us to specify the buffer
@@ -296,10 +296,9 @@ uint8_t ripc_reg_recv_window(void *rcv_addr, size_t rcv_size) {
 			return 0;
 		}
 		DEBUG("Receive buffer is too small, unregistering (size: %u, requested: %u)", mem_buf.size, rcv_size);
-		mem_buf = used_buf_list_get(rcv_addr);
-		ibv_dereg_mr(mem_buf.na);
-		//ibv_dereg_mr(mem_buf.na);
-		//return 1; //buffer too small, and overlapping buffers are not supported
+		ripc_buf_unregister(rcv_addr);
+		//fixme: Ignore error as the buffer will be removed from the used list even if deregistration fails
+		goto retry;
 	}
 
 	// not registered yet
