@@ -351,7 +351,7 @@ ripc_send_short(
 		dump_wr(wr, true);
 		ERROR("Failed WC was:");
 		dump_wc(wc);
-		ERROR("QP state: %d", dest_qp->state);
+		dump_qp_state(dest_qp);
 	}
 	DEBUG("Result: %s", ibv_wc_status_str(wc.status));
 //#endif
@@ -532,7 +532,7 @@ ripc_send_long(
 	    	dump_wr(rdma_wr, false);
 	    	ERROR("Failed WC was:");
 	    	dump_wc(rdma_wc);
-			ERROR("QP state: %d", context.remotes[dest]->na.rdma_qp->state);
+			dump_qp_state(context.remotes[dest]->na.rdma_qp);
 			free(return_mem_buf.na);
 			goto retry; //return buffer was invalid, but maybe the next one will do
 		} else {
@@ -650,7 +650,7 @@ ripc_send_long(
     	dump_wr(wr, true);
     	ERROR("Failed WC was:");
     	dump_wc(wc);
-		ERROR("QP state: %d", dest_qp->state);
+		dump_qp_state(dest_qp);
 	}
 	DEBUG("Result: %s", ibv_wc_status_str(wc.status));
 
@@ -904,7 +904,7 @@ ripc_receive(
 	    	dump_wr(rdma_wr, false);
 	    	ERROR("Failed WC was:");
 	    	dump_wc(rdma_wc);
-			ERROR("QP state: %d", context.remotes[hdr->from]->na.rdma_qp->state);
+			dump_qp_state(context.remotes[hdr->from]->na.rdma_qp);
 		} else {
 			DEBUG("Result: %s", ibv_wc_status_str(rdma_wc.status));
 		}

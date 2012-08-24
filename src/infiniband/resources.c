@@ -83,6 +83,7 @@ bool join_and_attach_multicast(struct service_id *service_id) {
 
 	//cache address handle used for sending requests
 	struct ibv_ah_attr ah_attr;
+	memset(&ah_attr, 0, sizeof(struct ibv_ah_attr));
 	ah_attr.dlid = mcg_params.mlid;
 	ah_attr.is_global = 1;
 	ah_attr.sl = 0;
@@ -416,7 +417,7 @@ retry:
     	   ERROR("Failed to send rdma connect request: %s", strerror(ret));
     	   goto error;
        } else {
-    	   DEBUG("Sent rdma connect request to remote %u (qp %u)", dest, remote->resolver_qp);
+    	   DEBUG("Sent rdma connect request to remote %u (qp %u, ah %#x)", dest, remote->resolver_qp, wr.wr.ud.ah->handle);
        }
 
        DEBUG("RDMA QP state: %u", rdma_service_id.na.qp->state);
@@ -426,12 +427,20 @@ retry:
        while ( ! ibv_poll_cq(rdma_service_id.na.send_cq, 1, &wc)) { /* wait for send completion */ }
 
        if (wc.status != IBV_WC_SUCCESS) {
+#ifdef HAVE_DEBUG
     	   ERROR("Failed to send rdma connect request: %s", ibv_wc_status_str(wc.status));
     	   ERROR("Failed WC was:");
     	   dump_wc(wc);
     	   ERROR("Failed WR was:");
     	   dump_wr(wr, true);
-    	   assert(wc.status == IBV_WC_SUCCESS);
+    	   dump_qp_state(rdma_service_id.na.qp);
+#endif
+    	   //QP is in an error state. Reset it and retry.
+    	   struct ibv_qp_attr reset_attr;
+    	   reset_attr.qp_state = IBV_QPS_RTS;
+    	   ibv_modify_qp(rdma_service_id.na.qp, &reset_attr, IBV_QP_STATE);
+    	   goto retry;
+    	   //assert(wc.status == IBV_WC_SUCCESS);
        }
 
        DEBUG("Got send completion for connect request");

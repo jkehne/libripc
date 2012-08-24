@@ -294,6 +294,7 @@ reply:
  	   dump_wc(wc);
  	   ERROR("Failed WR was:");
  	   dump_wr(wr, true);
+ 	   dump_qp_state(unicast_service_id.na.qp);
  	   assert(wc.status == IBV_WC_SUCCESS);
     }
 
@@ -385,6 +386,7 @@ void *start_responder(void *arg) {
 
 	//cache address handle used for sending requests
 	struct ibv_ah_attr ah_attr;
+	memset(&ah_attr, 0, sizeof(struct ibv_ah_attr));
 	ah_attr.dlid = mcg_params.mlid;
 	ah_attr.is_global = 1;
 	ah_attr.sl = 7;
@@ -412,7 +414,6 @@ void *start_responder(void *arg) {
 	struct ibv_sge resp_sge;
 	struct resolver_msg *msg, *response;
 	struct ibv_mr *resp_mr;
-	memset(&ah_attr, 0, sizeof(struct ibv_ah_attr)); //prepare for re-use
 	bool for_us;
 
 	//prepare a response as far as possible
@@ -507,6 +508,7 @@ void *start_responder(void *arg) {
 			response->dest_service_id = msg->dest_service_id;
 			response->src_service_id = msg->src_service_id;
 
+			memset(&ah_attr, 0, sizeof(struct ibv_ah_attr)); //prepare for re-use
 			ah_attr.dlid = msg->lid;
 			ah_attr.port_num = context.na.port_num;
 			resp_wr.wr.ud.ah = ibv_create_ah(context.na.pd, &ah_attr);
@@ -538,11 +540,15 @@ void *start_responder(void *arg) {
 		if ((context.remotes[msg->src_service_id]->qp_num != msg->service_qpn) ||
 				(context.remotes[msg->src_service_id]->resolver_qp != msg->resolver_qpn)) {
 
+			DEBUG("Updating cache for remote %u", msg->src_service_id);
+
 			if (context.remotes[msg->src_service_id]->na.ah) {
+				DEBUG("Destroying AH %#x", context.remotes[msg->src_service_id]->na.ah->handle);
 				ibv_destroy_ah(context.remotes[msg->src_service_id]->na.ah);
 				context.remotes[msg->src_service_id]->na.ah = NULL;
 			}
 
+			memset(&ah_attr, 0, sizeof(struct ibv_ah_attr)); //prepare for re-use
 			ah_attr.dlid = msg->lid;
 			ah_attr.port_num = context.na.port_num;
 			ah_attr.sl = 7;
@@ -583,6 +589,7 @@ void *start_responder(void *arg) {
 			   dump_wc(wc);
 			   ERROR("Failed WR was:");
 			   dump_wr(resp_wr, true);
+			   dump_qp_state(unicast_service_id.na.qp);
 			   assert(wc.status == IBV_WC_SUCCESS);
 		    } else
 		    	DEBUG("Got send completion, result: %s", ibv_wc_status_str(wc.status));
@@ -702,6 +709,7 @@ retry:
  	   dump_wc(wc);
  	   ERROR("Failed WR was:");
  	   dump_wr(wr, true);
+ 	   dump_qp_state(mcast_service_id.na.qp);
  	   assert(wc.status == IBV_WC_SUCCESS);
     }
 
@@ -763,6 +771,7 @@ keep_waiting:
 	ripc_buf_free(req_msg);
 
 	 //got the info we wanted, now feed it to the cache
+	memset(&ah_attr, 0, sizeof(ah_attr));
 	ah_attr.dlid = msg->lid;
 	ah_attr.port_num = context.na.port_num;
 	ah_attr.sl = 7;
