@@ -32,7 +32,7 @@ int main(void) {
 	sleep(1);
 
 	void *return_buf_array[SERVER_RETURN_BUFFERS];
-	size_t return_buf_length_array[SERVER_RETURN_BUFFERS];
+	uint32_t return_buf_length_array[SERVER_RETURN_BUFFERS];
 
 	int count = 0;
 	uint16_t from, num_short, num_long;
@@ -72,7 +72,7 @@ int main(void) {
                         SERVER_SERVICE_ID,
                         from,
                         short_items,
-                        (size_t *)short_sizes,
+                        short_sizes,
                         num_short,
                         return_buf_array,
                         return_buf_length_array,

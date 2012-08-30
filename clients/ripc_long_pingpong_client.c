@@ -38,8 +38,8 @@ int main(int argc, char *argv[]) {
 	//for sending
 	void *msg_array[WORDS_PER_PACKET];
 	void *return_buf_array[CLIENT_RETURN_BUFFERS];
-	size_t length_array[WORDS_PER_PACKET];
-	size_t return_buf_length_array[CLIENT_RETURN_BUFFERS];
+	uint32_t length_array[WORDS_PER_PACKET];
+	uint32_t return_buf_length_array[CLIENT_RETURN_BUFFERS];
 	uint32_t packet_size = argc > 1 ? atoi(argv[1]) : PACKET_SIZE;
 
 	//for receiving

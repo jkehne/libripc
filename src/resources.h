@@ -34,10 +34,7 @@ struct rdma_connect_msg {
        enum msg_type type;
        uint16_t dest_service_id;
        uint16_t src_service_id;
-       uint16_t lid;
-       uint32_t qpn;
-       uint32_t psn;
-       uint32_t response_qpn;
+       struct netarch_rdma_connect_msg na;
 };
 extern pthread_mutex_t rdma_connect_mutex;
 extern struct service_id rdma_service_id;

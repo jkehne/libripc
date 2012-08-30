@@ -87,8 +87,6 @@ struct service_id {
 struct remote_context {
 	enum conn_state state;
 	struct mem_buf_list *return_bufs;
-	uint32_t resolver_qp;
-	uint32_t qp_num;
 	struct netarch_remote_context na;
 };
 

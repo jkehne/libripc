@@ -121,11 +121,11 @@ ripc_send_short(
 		uint16_t src,
 		uint16_t dest,
 		void **buf,
-		size_t *length,
-		uint32_t num_items,
+		uint32_t *length,
+		uint16_t num_items,
 		void **return_bufs,
-		size_t *return_buf_lengths,
-		uint32_t num_return_bufs) {
+		uint32_t *return_buf_lengths,
+		uint16_t num_return_bufs) {
 
 	DEBUG("Starting short send: %u -> %u (%u items)", src, dest, num_items);
 
@@ -304,7 +304,7 @@ ripc_send_short(
 		wr.wr.ud.remote_qkey = (uint32_t)dest;
 		pthread_mutex_lock(&remotes_mutex);
 		wr.wr.ud.ah = context.remotes[dest]->na.ah;
-		wr.wr.ud.remote_qpn = context.remotes[dest]->qp_num;
+		wr.wr.ud.remote_qpn = context.remotes[dest]->na.qp_num;
 		pthread_mutex_unlock(&remotes_mutex);
 	}
 	wr.send_flags = IBV_SEND_SIGNALED;
@@ -367,11 +367,11 @@ ripc_send_long(
 		uint16_t src,
 		uint16_t dest,
 		void **buf,
-		size_t *length,
-		uint32_t num_items,
+		uint32_t *length,
+		uint16_t num_items,
 		void **return_bufs,
-		size_t *return_buf_lengths,
-		uint32_t num_return_bufs) {
+		uint32_t *return_buf_lengths,
+		uint16_t num_return_bufs) {
 
 	DEBUG("Starting long send: %u -> %u (%u items)", src, dest, num_items);
 
@@ -607,7 +607,7 @@ ripc_send_long(
 
 	pthread_mutex_lock(&remotes_mutex);
 	wr.wr.ud.ah = context.remotes[dest]->na.ah;
-	wr.wr.ud.remote_qpn = context.remotes[dest]->qp_num;
+	wr.wr.ud.remote_qpn = context.remotes[dest]->na.qp_num;
 	pthread_mutex_unlock(&remotes_mutex);
 	wr.wr.ud.remote_qkey = dest;
 

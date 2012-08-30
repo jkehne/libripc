@@ -33,6 +33,8 @@ struct netarch_service_id {
 };
 
 struct netarch_remote_context {
+	uint32_t resolver_qp;
+	uint32_t qp_num;
 	struct ibv_ah *ah;
 	struct ibv_qp *rdma_qp;
 	struct ibv_cq *rdma_send_cq;

@@ -42,7 +42,7 @@ int main(int argc, char *argv[]) {
 
 	//for sending
 	void *msg_array[1];
-	size_t length_array[1];
+	uint32_t length_array[1];
 	char *request = (char *)malloc(100);
 	sprintf(request, "GET /%s HTTP/1.0\n\n", argv[1]);
 	int length; //for sockets

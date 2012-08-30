@@ -23,6 +23,13 @@
 
 #include <infiniband/multicast_resources.h>
 
+struct netarch_rdma_connect_msg {
+	uint16_t lid;
+	uint32_t qpn;
+	uint32_t psn;
+	uint32_t response_qpn;
+};
+
 void dump_qp_state(struct ibv_qp *qp);
 void dump_wr(struct ibv_send_wr wr, bool ud);
 void dump_wc(struct ibv_wc wc);
