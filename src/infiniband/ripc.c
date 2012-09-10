@@ -495,9 +495,9 @@ ripc_send_long(
 		struct ibv_cq *rdma_cq, *tmp_cq;
 		struct ibv_comp_channel *rdma_cchannel;
 		pthread_mutex_lock(&remotes_mutex);
-		rdma_qp = context.remotes[dest]->na.rdma_qp;
-		rdma_cq = context.remotes[dest]->na.rdma_send_cq;
-		rdma_cchannel = context.remotes[dest]->na.rdma_cchannel;
+		rdma_qp = context.remotes[dest]->na.rdma[src]->qp;
+		rdma_cq = context.remotes[dest]->na.rdma[src]->send_cq;
+		rdma_cchannel = context.remotes[dest]->na.rdma[src]->cchannel;
 		pthread_mutex_unlock(&remotes_mutex);
 
 		ret = ibv_post_send(
@@ -532,7 +532,7 @@ ripc_send_long(
 	    	dump_wr(rdma_wr, false);
 	    	ERROR("Failed WC was:");
 	    	dump_wc(rdma_wc);
-			dump_qp_state(context.remotes[dest]->na.rdma_qp);
+			dump_qp_state(context.remotes[dest]->na.rdma[src]->qp);
 			free(return_mem_buf.na);
 			goto retry; //return buffer was invalid, but maybe the next one will do
 		} else {
@@ -812,6 +812,14 @@ ripc_receive(
 		*long_item_sizes = NULL;
 	}
 
+	if (hdr->long_words) {
+		if (!context.remotes[hdr->from])
+			resolve(service_id, hdr->from);
+
+		if (!context.remotes[hdr->from]->na.rdma[service_id])
+			create_rdma_connection(service_id,hdr->from);
+	}
+
 	for (i = 0; i < hdr->long_words; ++i) {
 		DEBUG("Received long item: addr %#lx, length %zu, rkey %#x",
 				long_msg[i].addr,
@@ -862,9 +870,9 @@ ripc_receive(
 		struct ibv_cq *rdma_cq, *tmp_cq;
 		struct ibv_comp_channel *rdma_cchannel;
 		pthread_mutex_lock(&remotes_mutex);
-		rdma_qp = context.remotes[hdr->from]->na.rdma_qp;
-		rdma_cq = context.remotes[hdr->from]->na.rdma_send_cq;
-		rdma_cchannel = context.remotes[hdr->from]->na.rdma_cchannel;
+		rdma_qp = context.remotes[hdr->from]->na.rdma[service_id]->qp;
+		rdma_cq = context.remotes[hdr->from]->na.rdma[service_id]->send_cq;
+		rdma_cchannel = context.remotes[hdr->from]->na.rdma[service_id]->cchannel;
 		pthread_mutex_unlock(&remotes_mutex);
 
 		ret = ibv_post_send(
@@ -904,7 +912,7 @@ ripc_receive(
 	    	dump_wr(rdma_wr, false);
 	    	ERROR("Failed WC was:");
 	    	dump_wc(rdma_wc);
-			dump_qp_state(context.remotes[hdr->from]->na.rdma_qp);
+			dump_qp_state(context.remotes[hdr->from]->na.rdma[service_id]->qp);
 		} else {
 			DEBUG("Result: %s", ibv_wc_status_str(rdma_wc.status));
 		}

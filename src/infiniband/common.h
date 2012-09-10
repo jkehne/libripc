@@ -36,10 +36,14 @@ struct netarch_remote_context {
 	uint32_t resolver_qp;
 	uint32_t qp_num;
 	struct ibv_ah *ah;
-	struct ibv_qp *rdma_qp;
-	struct ibv_cq *rdma_send_cq;
-	struct ibv_cq *rdma_recv_cq;
-	struct ibv_comp_channel *rdma_cchannel;
+	struct netarch_rdma_context *rdma[UINT16_MAX];
+};
+
+struct netarch_rdma_context {
+	struct ibv_qp *qp;
+	struct ibv_cq *send_cq;
+	struct ibv_cq *recv_cq;
+	struct ibv_comp_channel *cchannel;
 };
 
 struct netarch_library_context {
