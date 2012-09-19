@@ -14,8 +14,8 @@
  *  You should have received a copy of the GNU Lesser General Public License
  *  along with libRIPC.  If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef COMMON_H_
-#define COMMON_H_
+#ifndef CLIENTS_COMMON_H_
+#define CLIENTS_COMMON_H_
 
 #include "config.h"
 #include <assert.h>
@@ -58,4 +58,4 @@ typedef bool _Bool;
 
 
 
-#endif /* COMMON_H_ */
+#endif /* CLIENTS_COMMON_H_ */
