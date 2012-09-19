@@ -1,5 +1,5 @@
 lib_LTLIBRARIES=libripc.la
-include_HEADERS=ripc.h common.h config.h memory.h resolver.h resources.h
+include_HEADERS=ripc.h
 libripc_la_SOURCES=ripc.c memory.c resolver.c 
 
 if NETARCH_INFINIBAND
