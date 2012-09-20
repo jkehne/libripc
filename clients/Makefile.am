@@ -1,6 +1,6 @@
 bin_PROGRAMS=client server ripc_pingpong_server ripc_pingpong_client ripc_long_pingpong_server ripc_long_pingpong_client socket_pingpong_server socket_pingpong_client jetty_bench
 
-include_HEADERS=../src/ripc.h config.h common.h
+include_HEADERS=../src/ripc.h
 
 client_SOURCES=client.c
 client_LDADD=../src/libripc.la
