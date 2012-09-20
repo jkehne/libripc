@@ -175,3 +175,10 @@ void post_new_recv_buf(struct ibv_qp *qp) {
 	}
 }
 
+void dump_mem_buf(mem_buf_t *buf) {
+	ERROR("addr: %#lx", buf->addr);
+	ERROR("size: %zd", buf->size);
+	ERROR("rcv_addr: %p", buf->rcv_addr);
+	ERROR("rcv_size: %zd", buf->rcv_size);
+	ERROR("netarch info at %p", buf->na);
+}

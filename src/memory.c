@@ -142,7 +142,7 @@ mem_buf_t free_buf_list_get(size_t size) {
 }
 
 void recv_window_list_add(mem_buf_t mem_buf) {
-	DEBUG("Registering receive window at address %p, size %zu", mem_buf.rcv_addr, mem_buf.rcv_size);
+	DEBUG("Adding receive window at address %p, size %zu to global pool", mem_buf.rcv_addr, mem_buf.rcv_size);
 
 	struct mem_buf_list *container = malloc(sizeof(struct mem_buf_list));
 	assert(container);
@@ -196,6 +196,69 @@ void *recv_window_list_get(size_t size) {
 		ptr = ptr->next;
 	}
 	pthread_mutex_unlock(&recv_window_mutex);
+	return NULL; //not found
+}
+
+void private_recv_window_list_add(uint16_t service, mem_buf_t mem_buf) {
+	DEBUG("Adding receive window at address %p, size %zu to local pool of service %u", mem_buf.rcv_addr, mem_buf.rcv_size, service);
+
+	struct mem_buf_list *container = malloc(sizeof(struct mem_buf_list));
+	assert(container);
+	memset(container, 0, sizeof(struct mem_buf_list));
+
+	container->next = NULL;
+ 	container->buf = mem_buf;
+
+	pthread_mutex_lock(&services_mutex);
+
+	struct service_id *service_handle = context.services[service];
+
+	if (service_handle->recv_windows_tail == NULL) {
+		service_handle->recv_windows = container;
+		service_handle->recv_windows_tail = container;
+	} else {
+		service_handle->recv_windows_tail->next = container;
+		service_handle->recv_windows_tail = container;
+	}
+
+	pthread_mutex_unlock(&services_mutex);
+	return;
+}
+
+void *private_recv_window_list_get(uint16_t service, size_t size) {
+	pthread_mutex_lock(&services_mutex);
+
+	struct service_id *service_handle = context.services[service];
+
+	struct mem_buf_list *ptr = service_handle->recv_windows;
+	struct mem_buf_list *prev = NULL;
+
+	while(ptr) {
+		size_t ptr_size = ptr->buf.rcv_size;
+		DEBUG("Checking window list entry: %p size: %zd, requested size: %zd",
+				ptr->buf.rcv_addr,
+				ptr_size,
+				size);
+		if (ptr_size >= size) {
+			if (prev)
+				prev->next = ptr->next;
+			else //first element in list
+				service_handle->recv_windows = ptr->next;
+				//NOTE: If ptr is the only element, then ptr->next is NULL
+			if (ptr == service_handle->recv_windows_tail) {
+				service_handle->recv_windows_tail = prev;
+				if (prev)
+					prev->next = NULL;
+			}
+			pthread_mutex_unlock(&services_mutex);
+			void *ret = ptr->buf.rcv_addr;
+			free(ptr);
+			return ret;
+		}
+		prev = ptr;
+		ptr = ptr->next;
+	}
+	pthread_mutex_unlock(&services_mutex);
 	return NULL; //not found
 }
 
@@ -269,49 +332,80 @@ void ripc_buf_free(void *buf) {
 	}
 }
 
-uint8_t ripc_reg_recv_window(void *rcv_addr, size_t rcv_size) {
+mem_buf_t make_recv_window(void *addr, size_t size) {
 	mem_buf_t mem_buf;
-	assert(rcv_size > 0);
-retry:
-	DEBUG("Attempting receive window registration at %p, size %u", rcv_addr, rcv_size);
 
-	if (rcv_addr == NULL) { //the user wants us to specify the buffer
-		DEBUG("No rcv_addr specified, allocating new buffer");
-		mem_buf = ripc_alloc_recv_buf(rcv_size);
-                mem_buf.rcv_addr = rcv_addr;
-                mem_buf.rcv_size = rcv_size;
-                recv_window_list_add(mem_buf);
-		return 0;
+	retry:
+	DEBUG("Attempting receive window registration at %p, size %u", addr, size);
+
+	if (addr == NULL) { //the user wants us to specify the buffer
+		DEBUG("No address specified, allocating new buffer");
+		mem_buf = ripc_alloc_recv_buf(size);
+		mem_buf.rcv_addr = addr;
+		mem_buf.rcv_size = size;
+		return mem_buf;
 	}
 
-	mem_buf = used_buf_list_get(rcv_addr); //are we registered yet?
+	mem_buf = used_buf_list_get(addr); //are we registered yet?
 	if (mem_buf.size != -1) {
 		DEBUG("Found buffer mr: Rcv_Addr address %p, size %zu, lkey %#x",
-                      (void *) mem_buf.addr, mem_buf.size, mem_buf.na->lkey);
-                mem_buf.rcv_addr = rcv_addr;
-                mem_buf.rcv_size = rcv_size;
-                used_buf_list_add(mem_buf);
-		if ((uint64_t)rcv_addr + rcv_size <= mem_buf.addr + mem_buf.size) { //is the buffer big enough?
-                        recv_window_list_add(mem_buf);
-			return 0;
+				(void *) mem_buf.addr, mem_buf.size, mem_buf.na->lkey);
+		mem_buf.rcv_addr = addr;
+		mem_buf.rcv_size = size;
+		used_buf_list_add(mem_buf);
+		if ((uint64_t)addr + size <= mem_buf.addr + mem_buf.size) { //is the buffer big enough?
+			return mem_buf;
 		}
-		DEBUG("Receive buffer is too small, unregistering (size: %u, requested: %u)", mem_buf.size, rcv_size);
-		ripc_buf_unregister(rcv_addr);
+		DEBUG("Receive buffer is too small, unregistering (size: %u, requested: %u)", mem_buf.size, size);
+		ripc_buf_unregister(addr);
 		//fixme: Ignore error as the buffer will be removed from the used list even if deregistration fails
 		goto retry;
 	}
 
 	// not registered yet
-	DEBUG("mr not found, registering memory area (address %p)", rcv_addr);
-	if (ripc_buf_register(rcv_addr, rcv_size)) {
-		ERROR("memory registration failed (address %p)", rcv_addr);
-		return 1; //registration failed
+	DEBUG("mr not found, registering memory area (address %p)", addr);
+	if (ripc_buf_register(addr, size)) {
+		ERROR("memory registration failed (address %p)", addr);
+		return invalid_mem_buf; //registration failed
 	}
 	DEBUG("Successfully registered memory area");
-	mem_buf = used_buf_list_get(rcv_addr);
-        mem_buf.rcv_addr = rcv_addr;
-        mem_buf.rcv_size = rcv_size;
-        used_buf_list_add(mem_buf);
-        recv_window_list_add(mem_buf);
+	mem_buf = used_buf_list_get(addr);
+	mem_buf.rcv_addr = addr;
+	mem_buf.rcv_size = size;
+#ifdef HAVE_DEBUG
+	ERROR("Got mem_buf:");
+	dump_mem_buf(&mem_buf);
+#endif
+	used_buf_list_add(mem_buf);
+	return mem_buf;
+}
+
+uint8_t ripc_reg_recv_window(void *rcv_addr, size_t rcv_size) {
+	mem_buf_t mem_buf;
+	assert(rcv_size > 0);
+
+	mem_buf = make_recv_window(rcv_addr, rcv_size);
+	if (mem_buf.size == -1) {
+		ERROR("Failed to make receive window at address %p, size %u", rcv_addr, rcv_size);
+		return 1; //FAIL
+	}
+
+	recv_window_list_add(mem_buf);
+	DEBUG("Added receive window to global pool (address: %p, size: %u)", mem_buf.rcv_addr, mem_buf.rcv_size);
+	return 0;
+}
+
+uint8_t ripc_reg_recv_window_for_service(void *rcv_addr, size_t rcv_size, uint16_t service) {
+	mem_buf_t mem_buf;
+	assert(rcv_size > 0);
+
+	mem_buf = make_recv_window(rcv_addr, rcv_size);
+	if (mem_buf.size == -1) {
+		ERROR("Failed to make receive window at address %p, size %u", rcv_addr, rcv_size);
+		return 1; //FAIL
+	}
+
+	private_recv_window_list_add(service, mem_buf);
+	DEBUG("Added receive window to private pool of service %u (address: %p, size: %u)", service, mem_buf.rcv_addr, mem_buf.rcv_size);
 	return 0;
 }

@@ -81,6 +81,8 @@ enum conn_state {
 struct service_id {
 	uint16_t number;
 	bool is_multicast;
+    struct mem_buf_list *recv_windows;
+    struct mem_buf_list *recv_windows_tail;
     struct netarch_service_id na;
 };
 

@@ -58,11 +58,15 @@ void free_buf_list_add(mem_buf_t mem_buf);
 void *recv_window_list_get(size_t size);
 void recv_window_list_add(mem_buf_t mem_buf);
 
+void *private_recv_window_list_get(uint16_t service, size_t size);
+void private_recv_window_list_add(uint16_t service, mem_buf_t mem_buf);
 
 mem_buf_t return_buf_list_get(uint16_t remote, size_t size);
 void return_buf_list_add(uint16_t remote, mem_buf_t mem_buf);
 
 mem_buf_t ripc_alloc_recv_buf(size_t size);
 mem_buf_t ripc_resize_recv_buf(mem_buf_t buf, size_t size);
+
+void dump_mem_buf(mem_buf_t *buf);
 
 #endif /* MEMORY_H_ */

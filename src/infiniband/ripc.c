@@ -836,19 +836,25 @@ ripc_receive(
 			continue;
 		}
 
-		void *rdma_addr = recv_window_list_get(long_msg[i].length);
+		void *rdma_addr = private_recv_window_list_get(service_id, long_msg[i].length);
 		if (!rdma_addr) {
-			DEBUG("Not enough receive windows available! Discarding rest of message");
-			ret = 1;
-			break;
-		}
-		DEBUG("Found receive window at address %p", rdma_addr);
+			rdma_addr = recv_window_list_get(long_msg[i].length);
+			if (!rdma_addr) {
+				DEBUG("Not enough receive windows available! Discarding rest of message");
+				ret = 1;
+				break;
+			} else
+				DEBUG("Found global receive window at address %p", rdma_addr);
+		} else
+			DEBUG("Found private receive window at address %p", rdma_addr);
 
 		mem_buf_t rdma_mem_buf = used_buf_list_get(rdma_addr);
 		used_buf_list_add(rdma_mem_buf);
 
-		DEBUG("Found rdma mr: addr %lx, length %zu",
-				rdma_mem_buf.addr, rdma_mem_buf.size);
+#ifdef HAVE_DEBUG
+		DEBUG("Found rdma mr:");
+		dump_mem_buf(&rdma_mem_buf);
+#endif
 
 		struct ibv_sge rdma_sge;
 		rdma_sge.addr = (uint64_t)rdma_addr;

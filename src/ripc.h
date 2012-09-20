@@ -37,6 +37,7 @@ void *ripc_buf_alloc(size_t size);
 void *ripc_buf_realloc(void *buf, size_t size);
 void ripc_buf_free(void *buf);
 uint8_t ripc_reg_recv_window(void *base, size_t size);
+uint8_t ripc_reg_recv_window_for_service(void *base, size_t size, uint16_t service);
 uint8_t ripc_buf_register(void *buf, size_t size);
 uint8_t ripc_buf_unregister(void *buf);
 
