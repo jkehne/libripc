@@ -298,9 +298,9 @@ reply:
     if (wc.status != IBV_WC_SUCCESS) {
  	   ERROR("Failed to send rdma connect request: %s", ibv_wc_status_str(wc.status));
  	   ERROR("Failed WC was:");
- 	   dump_wc(wc);
+ 	   dump_wc(&wc);
  	   ERROR("Failed WR was:");
- 	   dump_wr(wr, true);
+ 	   dump_wr(&wr, true);
  	   dump_qp_state(unicast_service_id.na.qp);
  	   assert(wc.status == IBV_WC_SUCCESS);
     }
@@ -458,7 +458,7 @@ void *start_responder(void *arg) {
 		if (wc.status != IBV_WC_SUCCESS) {
 		   ERROR("Failed to send rdma connect request: %s", ibv_wc_status_str(wc.status));
 		   ERROR("Failed WC was:");
-		   dump_wc(wc);
+		   dump_wc(&wc);
 		   assert(wc.status == IBV_WC_SUCCESS);
 	    }
 
@@ -589,9 +589,9 @@ void *start_responder(void *arg) {
 			if (wc.status != IBV_WC_SUCCESS) {
 			   ERROR("Failed to send rdma connect request: %s", ibv_wc_status_str(wc.status));
 			   ERROR("Failed WC was:");
-			   dump_wc(wc);
+			   dump_wc(&wc);
 			   ERROR("Failed WR was:");
-			   dump_wr(resp_wr, true);
+			   dump_wr(&resp_wr, true);
 			   dump_qp_state(unicast_service_id.na.qp);
 			   assert(wc.status == IBV_WC_SUCCESS);
 		    } else
@@ -709,9 +709,9 @@ retry:
     if (wc.status != IBV_WC_SUCCESS) {
  	   ERROR("Failed to send rdma connect request: %s", ibv_wc_status_str(wc.status));
  	   ERROR("Failed WC was:");
- 	   dump_wc(wc);
+ 	   dump_wc(&wc);
  	   ERROR("Failed WR was:");
- 	   dump_wr(wr, true);
+ 	   dump_wr(&wr, true);
  	   dump_qp_state(mcast_service_id.na.qp);
  	   assert(wc.status == IBV_WC_SUCCESS);
     }
@@ -743,7 +743,7 @@ keep_waiting:
 	if (wc.status != IBV_WC_SUCCESS) {
  	   ERROR("Failed to send rdma connect request: %s", ibv_wc_status_str(wc.status));
  	   ERROR("Failed WC was:");
- 	   dump_wc(wc);
+ 	   dump_wc(&wc);
  	   assert(wc.status == IBV_WC_SUCCESS);
     }
 

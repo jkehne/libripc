@@ -348,9 +348,9 @@ ripc_send_short(
 	if (wc.status) {
 		ERROR("Send result: %s", ibv_wc_status_str(wc.status));
 		ERROR("Failed WR was:");
-		dump_wr(wr, true);
+		dump_wr(&wr, true);
 		ERROR("Failed WC was:");
-		dump_wc(wc);
+		dump_wc(&wc);
 		dump_qp_state(dest_qp);
 	}
 	DEBUG("Result: %s", ibv_wc_status_str(wc.status));
@@ -529,9 +529,9 @@ ripc_send_long(
 		if (rdma_wc.status) {
 			ERROR("Send result: %s", ibv_wc_status_str(rdma_wc.status));
 	    	ERROR("Failed WR was:");
-	    	dump_wr(rdma_wr, false);
+	    	dump_wr(&rdma_wr, false);
 	    	ERROR("Failed WC was:");
-	    	dump_wc(rdma_wc);
+	    	dump_wc(&rdma_wc);
 			dump_qp_state(context.remotes[dest]->na.rdma[src]->qp);
 			free(return_mem_buf.na);
 			goto retry; //return buffer was invalid, but maybe the next one will do
@@ -647,9 +647,9 @@ ripc_send_long(
 	if (wc.status) {
 		ERROR("Send result: %s", ibv_wc_status_str(wc.status));
     	ERROR("Failed WR was:");
-    	dump_wr(wr, true);
+    	dump_wr(&wr, true);
     	ERROR("Failed WC was:");
-    	dump_wc(wc);
+    	dump_wc(&wc);
 		dump_qp_state(dest_qp);
 	}
 	DEBUG("Result: %s", ibv_wc_status_str(wc.status));
@@ -714,7 +714,7 @@ ripc_receive(
     if (wc.status != IBV_WC_SUCCESS) {
  	   ERROR("Failed to send rdma connect request: %s", ibv_wc_status_str(wc.status));
  	   ERROR("Failed WC was:");
- 	   dump_wc(wc);
+ 	   dump_wc(&wc);
  	   assert(wc.status == IBV_WC_SUCCESS);
     }
 
@@ -909,9 +909,9 @@ ripc_receive(
 		if (rdma_wc.status) {
 			ERROR("Send result: %s", ibv_wc_status_str(rdma_wc.status));
 	    	ERROR("Failed WR was:");
-	    	dump_wr(rdma_wr, false);
+	    	dump_wr(&rdma_wr, false);
 	    	ERROR("Failed WC was:");
-	    	dump_wc(rdma_wc);
+	    	dump_wc(&rdma_wc);
 			dump_qp_state(context.remotes[hdr->from]->na.rdma[service_id]->qp);
 		} else {
 			DEBUG("Result: %s", ibv_wc_status_str(rdma_wc.status));
