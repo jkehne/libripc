@@ -112,6 +112,6 @@ AS_IF([test "x$enable_debug" = "xyes"], [AC_DEFINE([HAVE_DEBUG], [1], [Define to
 AS_IF([test "x$enable_debug" = "xyes"], [CFLAGS="-O0 -ggdb3"])
 
 AC_CONFIG_HEADERS([src/config.h clients/config.h])
-AC_CONFIG_FILES(Makefile src/Makefile clients/Makefile src/infiniband/Makefile src/bgp/Makefile src/local/Makefile)
+AC_CONFIG_FILES(Makefile src/Makefile clients/Makefile src/resolver/Makefile src/infiniband/Makefile src/bgp/Makefile src/local/Makefile)
 AC_OUTPUT
 
