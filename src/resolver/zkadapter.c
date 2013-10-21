@@ -10,7 +10,7 @@
 
 // TODO: Refactor functions to expect struct capability *
 
-#define ZK_CHROOT "/dummy002"
+#define ZK_CHROOT "/libRIPC"
 #define ZK_TIMEOUT 10000
 #define ZK_LOGLEVEL ZOO_LOG_LEVEL_WARN
 
