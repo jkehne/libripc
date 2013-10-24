@@ -115,10 +115,17 @@ int service_login(Capability cap)
 		return result;
 	}
 
-	result = capability_set_address(cap, address_get());
+	result = capability_set_recvctx(cap);
 	if (result != SUCCESS) {
 		fprintf(stderr, "service_login(): "
-				"Could not update local address.\n");
+				"Failed to get current hardware info.\n");
+		return result;
+	}
+
+	result = capability_set_sendctx(cap);
+	if (result != SUCCESS) {
+		fprintf(stderr, "service_login(): "
+				"Got hardware info but failed to prepare addressing info.\n");
 		return result;
 	}
 
@@ -126,18 +133,21 @@ int service_login(Capability cap)
 	if (result != SUCCESS) {
 		fprintf(stderr, "service_login(): "
 				"Failed to send data.\n");
+		return result;
 	}
 
-	return result;
+	return SUCCESS;
 }
 
 int service_logout(Capability cap)
 {
+	/* Are we theoretically able to update ZK? */
 	int result = capability_contains_authinfo(cap, "service_logout");
 	if (result != SUCCESS) {
 		return result;
 	}
 
+	/* Are we practically able to update ZK? */
 	result = capability_auth(cap);
 	if (result != SUCCESS) {
 		fprintf(stderr, "service_logout(): "
@@ -145,17 +155,19 @@ int service_logout(Capability cap)
 		return result;
 	}
 
-	result = capability_set_address(cap, "");
+	/* Announce that we are offline *before* actually going offline. */
+	result = zka_set_offline(cap);
+	if (result != SUCCESS) {
+		fprintf(stderr, "service_logout(): "
+				"Failed to log service out in ZK.\n");
+	}
+
+	result = capability_clear_sendctx(capability_get(cap)); // TODO error hdnl
+	result = capability_clear_recvctx(cap);
 	if (result != SUCCESS) {
 		fprintf(stderr, "service_logout(): "
 				"Could not clear local address.\n");
 		return result;
-	}
-
-	result = zka_set_address(cap);
-	if (result != SUCCESS) {
-		fprintf(stderr, "service_login(): "
-				"Failed to send data.\n");
 	}
 
 	return result;

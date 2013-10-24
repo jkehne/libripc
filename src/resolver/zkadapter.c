@@ -7,10 +7,11 @@
 #include "zkadapter.h"
 #include "capability.h"
 #include "base64.h"
+#include "netarch.h"
 
 // TODO: Refactor functions to expect struct capability *
 
-#define ZK_CHROOT "/libRIPC"
+#define ZK_CHROOT "/dummy002"
 #define ZK_TIMEOUT 10000
 #define ZK_LOGLEVEL ZOO_LOG_LEVEL_WARN
 
@@ -63,6 +64,17 @@ uint32_t sid = 0;
 /* Mutual dependency with zka_watcher_node(). */
 int zka_wget(const char *path, struct capability *ptr, struct zka_watcher_context *wctx);
 
+void zka_clean_addr(struct capability *ptr)
+{
+	/* The zoo_*get() family of functions might be called as part of an
+	 * update to an already valid capability, containing addressing info.
+	 *
+	 * We have to prevent memory and resource leaks, and perform proper
+	 * cleanup.
+	 */
+	capability_clear_sendctx(ptr);
+}
+
 void zka_watcher_node(zhandle_t *zh, int type, int state, const char *path, void *context)
 {
 	(void) zh; // We use only one connection, we don't need the handle.
@@ -106,7 +118,7 @@ void zka_watcher_node(zhandle_t *zh, int type, int state, const char *path, void
 		fprintf(stderr, "zka_watcher_node(): "
 				"Service just vanished.\n");
 #endif
-		memset(wctx->ptr->addr, 0, LEN_SERVICE_ADDR + 1); // Trailing \0.
+		zka_clean_addr(wctx->ptr);
 		requires_callback = 1;
 	} else if (type == ZOO_CHANGED_EVENT) {
 		int result = zka_wget(path, wctx->ptr, wctx);
@@ -133,38 +145,32 @@ void zka_watcher_node(zhandle_t *zh, int type, int state, const char *path, void
 	}
 }
 
-void zka_clean_addr(struct capability *ptr)
-{
-	/* The zoo_*get() family of functions might be called as part of an
-	 * update to an already valid capability, containing an address string.
-	 *
-	 * At least the ZK CLI does not send null-terminated strings to ZK.
-	 * ZK itself does not clean the buffer we supply, so we will read
-	 * garbage if strlen(new) < strlen(old).
-	 */
-	memset(ptr->addr, 0, LEN_SERVICE_ADDR + 1); // Trailing \0.
-}
-
 int zka_wget(const char *path, struct capability *ptr, struct zka_watcher_context *wctx)
 {
 	zka_clean_addr(ptr);
 
-	int zlength = LEN_SERVICE_ADDR;
-	int zresult = zoo_wget(zk, path, zka_watcher_node, wctx, ptr->addr, &zlength, NULL);
-	if (zresult != ZOK) {
-		if (zresult == ZNONODE) {
-#ifdef DEBUG
-			fprintf(stderr, "zoo_wget(): %s\n", zerror(zresult));
-			fprintf(stderr, "zka_wget(): "
-					"Service does not exist.\n");
-#endif
-			return NO_SUCH_SERVICE;
-		} else {
-			fprintf(stderr, "zoo_wget(): %s\n", zerror(zresult));
-			fprintf(stderr, "zka_wget(): "
-					"Failed to get data from ZK.\n");
-			return GENERIC_ERROR;
-		}
+	struct netarch_address_record data = { 0 };
+
+	const int length = sizeof(struct netarch_address_record);
+	int zlength = length;
+
+	int zresult = zoo_wget(zk, path, zka_watcher_node, wctx, (void*) &data, &zlength, NULL);
+	int result = zka_check_lookup_zresult(zresult, "zka_wget");
+	if (result != SUCCESS) {
+		return result;
+	}
+
+	if (zlength != 0 && zlength != length) {
+		fprintf(stderr, "zka_wget(): "
+				"ZK read sucessful but record size invalid.\n");
+		return GENERIC_ERROR;
+	}
+
+	result = netarch_store_sendctx_in_cap(ptr, &data);
+	if (result != SUCCESS) {
+		fprintf(stderr, "zka_wget(): "
+				"Failed to store ZK record in capability locally.\n");
+		return result;
 	}
 
 	return SUCCESS;
@@ -290,18 +296,22 @@ int zka_assure_connection(const char *func_name)
 void zka_path_from_name(char path[LEN_SERVICE_NAME + 2], const char *name)
 {
 	path[0] = '/';
-	strncpy(path + 1, name, LEN_SERVICE_NAME + 1); // +1 ensures trailing \0
+	strncpy(path + 1, name, LEN_SERVICE_NAME + 1);
+	/* strncpy() pads with \0, +1 ensures trailing \0 */
 }
 
 int zka_check_lookup_zresult(int zresult, const char *func_name)
 {
 	if (zresult == ZNONODE) {
 #ifdef DEBUG
+		fprintf(stderr, "zoo_wget(): %s\n", zerror(zresult));
 		fprintf(stderr, "%s(): Service does not exist.\n", func_name);
 #endif
 		return NO_SUCH_SERVICE;
 	}
+
 	if (zresult != ZOK) {
+		fprintf(stderr, "zoo_wget(): %s\n", zerror(zresult));
 		fprintf(stderr, "%s(): Failed to get data from ZK.\n", func_name);
 		return GENERIC_ERROR;
 	}
@@ -331,17 +341,17 @@ int zka_lookup_once(Capability cap)
 		return GENERIC_ERROR;
 	}
 
-	/* Cap might already have an address string in its buffer. */
-	zka_clean_addr(ptr);
-
 	/* ZK expects a path pointing to a ZNode. */
 	char path[LEN_SERVICE_NAME + 2]; // Leading '/', trailing '\0'.
 	zka_path_from_name(path, ptr->name);
 
-	int length = LEN_SERVICE_ADDR;
-	int zresult = zoo_wget(zk, path, NULL, NULL, ptr->addr, &length, NULL);
+	if ((result = zka_wget(path, ptr, NULL)) != SUCCESS) {
+		fprintf(stderr, "zka_lookup_once(): "
+				"FIXME\n");
+		return result;
+	}
 
-	return zka_check_lookup_zresult(zresult, "zka_lookup_once");
+	return SUCCESS;
 }
 
 int zka_lookup(Capability cap, void (*callback)(Capability))
@@ -365,13 +375,10 @@ int zka_lookup(Capability cap, void (*callback)(Capability))
 	wctx->callback   = callback;
 	wctx->is_enabled = 1;
 
-	int zresult = zka_wget(path, ptr, wctx);
-	result = zka_check_lookup_zresult(zresult, "zka_lookup");
-
 	/* ZK watch is only set if the request was successful. Especially, this
 	 * means that no watch will be set if the node does not exist.
 	 */
-	if (result == SUCCESS) {
+	if ((result = zka_wget(path, ptr, wctx)) == SUCCESS) {
 		/* If we have a watcher context for this capability, it is an
 		 * old one for the exact same capability that is still active.
 		 *
@@ -417,21 +424,27 @@ void zka_name_servers_setup()
 
 int zka_set_address(Capability cap)
 {
-	const char *const name = capability_get_service_name(cap);
-	const char *const addr = capability_get_service_addr(cap);
+	int result;
+	if ((result = zka_assure_connection("zka_set_address")) != SUCCESS) {
+		return result;
+	}
 
-	/* ZK expects a path pointing to a ZNode. */
-	char path[LEN_SERVICE_NAME + 2] = { 0 }; // Leading '/', trailing '\0'.
-	path[0] = '/';
-	strncat(path, name, LEN_SERVICE_NAME);
-
-	if (!zk && zka_login() != 0) {
-		fprintf(stderr, "zka_set_address(): "
-				"Not connected.\n");
+	struct capability *ptr = zka_capability_get(cap, "zka_set_address");
+	if (!ptr || check_service_name(ptr->name, "zka_set_address") != SUCCESS) {
 		return GENERIC_ERROR;
 	}
 
-	int zresult = zoo_set(zk, path, addr, strlen(addr), -1);
+	/* ZK expects a path pointing to a ZNode. */
+	char path[LEN_SERVICE_NAME + 2]; // Leading '/', trailing '\0'.
+	zka_path_from_name(path, ptr->name);
+
+	struct netarch_address_record data = { 0 };
+	if ((result = netarch_read_sendctx_from_cap(ptr, &data)) != SUCCESS) {
+		fprintf(stderr, "zka_set_address(): FIXME");
+		return result;
+	}
+
+	int zresult = zoo_set(zk, path, (void*)&data, sizeof(struct netarch_address_record), -1);
 	if (zresult != ZOK) {
 		fprintf(stderr, "zoo_set(): %s\n", zerror(zresult));
 		fprintf(stderr, "zka_set_address(): "
@@ -442,16 +455,42 @@ int zka_set_address(Capability cap)
 	return SUCCESS;
 }
 
-int zka_create(const char *path, const char *data, struct ACL_vector *acl)
+int zka_set_offline(Capability cap)
 {
-	if (!zk && zka_login() != 0) {
-		fprintf(stderr, "zka_create(): "
-				"Not connected.\n");
+	int result;
+	if ((result = zka_assure_connection("zka_set_offline")) != SUCCESS) {
+		return result;
+	}
+
+	struct capability *ptr = zka_capability_get(cap, "zka_set_offline");
+	if (!ptr || check_service_name(ptr->name, "zka_set_offline") != SUCCESS) {
 		return GENERIC_ERROR;
 	}
 
-	int result = SUCCESS;
-	int zresult = zoo_create(zk, path, data, strlen(data), acl, 0, NULL, 0);
+	/* ZK expects a path pointing to a ZNode. */
+	char path[LEN_SERVICE_NAME + 2]; // Leading '/', trailing '\0'.
+	zka_path_from_name(path, ptr->name);
+
+	int zresult = zoo_set(zk, path, "", 0, -1);
+	if (zresult != ZOK) {
+		fprintf(stderr, "zoo_set(): %s\n", zerror(zresult));
+		fprintf(stderr, "zka_set_offline(): "
+				"Failed to clear data in ZK.\n");
+		return GENERIC_ERROR;
+	}
+
+	return SUCCESS;
+}
+
+int zka_create(const char *path, struct netarch_address_record *data, struct ACL_vector *acl)
+{
+	int result;
+	if ((result = zka_assure_connection("zka_create")) != SUCCESS) {
+		return result;
+	}
+
+	result = SUCCESS;
+	int zresult = zoo_create(zk, path, (void*) data, sizeof(struct netarch_address_record), acl, 0, NULL, 0);
 	if (zresult != ZOK) {
 		result = GENERIC_ERROR;
 		switch (zresult) {
@@ -497,11 +536,17 @@ int zka_service_create(Capability cap)
 	acl.data = aclList;
 
 	/* ZK expects a path pointing to a ZNode. */
-	char path[LEN_SERVICE_NAME + 2] = { 0 }; // Leading '/', trailing '\0'.
-	path[0] = '/';
-	strncat(path, capability_get_service_name(cap), LEN_SERVICE_NAME);
+	char path[LEN_SERVICE_NAME + 2]; // Leading '/', trailing '\0'.
+	zka_path_from_name(path, capability_get_service_name(cap));
 
-	int result = zka_create(path, capability_get_service_addr(cap), &acl);
+	struct netarch_address_record data = { 0 };
+	int result = netarch_read_sendctx_from_cap(capability_get(cap), &data); // TODO encapsulation
+	if (result != SUCCESS) {
+		fprintf(stderr, "zka_service_create(): FIXME\n");
+		return result;
+	}
+
+	result = zka_create(path, &data, &acl);
 	if (result == SERVICE_EXISTS) {
 #ifdef DEBUG
 		fprintf(stderr, "zka_service_create(): "

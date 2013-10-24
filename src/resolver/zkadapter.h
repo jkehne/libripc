@@ -17,6 +17,7 @@ int zka_add_auth(Capability cap);
 int zka_lookup_once(Capability cap);
 int zka_lookup(Capability cap, void (*callback)(Capability));
 int zka_set_address(Capability cap);
+int zka_set_offline(Capability cap);
 int zka_disable_updates(Capability cap);
 
 #endif // ZKADAPTER_H_

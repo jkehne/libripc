@@ -20,6 +20,7 @@
 #include <config.h>
 #include <common.h>
 #include <ripc.h>
+#include "resolver/capability.h"
 #ifdef NETARCH_INFINIBAND
 #include <infiniband/resources.h>
 #endif
@@ -40,7 +41,7 @@ extern pthread_mutex_t rdma_connect_mutex;
 extern struct service_id rdma_service_id;
 extern pthread_t async_event_logger_thread;
 
-void alloc_queue_state(struct service_id *service_id);
+void alloc_queue_state(struct capability *ptr);
 void *async_event_logger(void *context);
 
 #endif /* RESOURCES_H_ */

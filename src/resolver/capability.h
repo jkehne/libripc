@@ -4,9 +4,9 @@
 #include <stdint.h>
 #include <stddef.h>
 #include "naming.h"
+#include "context.h"
 
 #define LEN_SERVICE_PASS 63
-#define LEN_SERVICE_ADDR 63
 
 #define MAX_CAPS 256
 
@@ -20,8 +20,9 @@ struct capability
 {
 	char name[LEN_SERVICE_NAME + 1];
 	char pass[LEN_SERVICE_PASS + 1];
-	char addr[LEN_SERVICE_ADDR + 1];
 	unsigned int auth_id;
+	struct context_sending   *send;
+	struct context_receiving *recv;
 };
 
 Capability capability_create_empty();
@@ -34,10 +35,13 @@ Capability capability_of_struct(struct capability *ptr);
 struct capability *capability_get(Capability cap);
 
 const char *capability_get_service_pass(Capability cap);
-const char *capability_get_service_addr(Capability cap);
-int capability_set_address(Capability cap, const char *address);
 int capability_set_name(Capability cap, const char *name);
 int capability_auth(Capability cap);
 int check_service_name(const char *name, const char *func_name);
+
+int capability_set_sendctx(Capability cap);
+int capability_set_recvctx(Capability cap);
+int capability_clear_sendctx(struct capability *ptr);
+int capability_clear_recvctx(Capability cap);
 
 #endif /* CAPABILITY_H_ */

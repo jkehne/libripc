@@ -1,5 +1,6 @@
 /*  Copyright 2011, 2012 Jens Kehne
  *  Copyright 2012 Jan Stoess, Karlsruhe Institute of Technology
+ *  Copyright 2013, Andreas Waidler
  *
  *  LibRIPC is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License as published by the
@@ -118,8 +119,8 @@ void netarch_init(void) {
 
 uint8_t
 ripc_send_short(
-		uint16_t src,
-		uint16_t dest,
+		Capability src,
+		Capability dest,
 		void **buf,
 		uint32_t *length,
 		uint16_t num_items,
@@ -364,8 +365,8 @@ ripc_send_short(
 
 uint8_t
 ripc_send_long(
-		uint16_t src,
-		uint16_t dest,
+		Capability src,
+		Capability dest,
 		void **buf,
 		uint32_t *length,
 		uint16_t num_items,
@@ -661,8 +662,8 @@ ripc_send_long(
 
 uint8_t
 ripc_receive(
-		uint16_t service_id,
-		uint16_t *from_service_id,
+		Capability service_id,
+		Capability *from_service_id,
 		void ***short_items,
 		uint32_t **short_item_sizes,
 		uint16_t *num_short_items,

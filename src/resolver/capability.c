@@ -79,15 +79,6 @@ const char *capability_get_service_pass(Capability cap)
 	return caps[cap]->pass;
 }
 
-const char *capability_get_service_addr(Capability cap)
-{
-	if (capability_exists(cap, "capability_get_service_addr") != SUCCESS) {
-		return NULL;
-	}
-
-	return caps[cap]->addr;
-}
-
 Capability capability_insert(struct capability *ptr)
 {
 	size_t index = next_free_slot();
@@ -166,7 +157,8 @@ Capability capability_create(const char* servicename)
 
 	strncpy(caps[cap]->name, servicename, LEN_SERVICE_NAME);
 	strrand(caps[cap]->pass, LEN_SERVICE_PASS);
-	strncpy(caps[cap]->addr, address_get(), LEN_SERVICE_ADDR);
+	capability_set_recvctx(cap);
+	capability_set_sendctx(caps[cap]);
 
 	return cap;
 }
@@ -247,8 +239,8 @@ void capability_debug(Capability cap)
 	}
 
 	struct capability *c = caps[cap];
-	printf("caps[%i] = {\"%s\", \"%s\", \"%s\", %i}\n",
-			cap, c->name, c->pass, c->addr, c->auth_id);
+	printf("caps[%i] = {\"%s\", \"%s\", %i, %p, %p}\n",
+			cap, c->name, c->pass, c->auth_id, c->send, c->recv);
 }
 
 int capability_auth(Capability cap)
@@ -280,19 +272,53 @@ int capability_auth(Capability cap)
 	return SUCCESS;
 }
 
-int capability_set_address(Capability cap, const char *address)
+/**
+ * Sets local address for receiving messages.
+ */
+int capability_set_recvctx(Capability cap)
 {
-	if (capability_exists(cap, "capability_set_address") != SUCCESS) {
-		return GENERIC_ERROR;
-	}
-	if (strlen(address) > LEN_SERVICE_ADDR) {
-		fprintf(stderr, "capability_set_address(): "
-				"Address \"%s\" is too long.",
-				address);
+	if (capability_exists(cap, "capability_set_recvctx") != SUCCESS) {
 		return GENERIC_ERROR;
 	}
 
-	strncpy(caps[cap]->addr, address, LEN_SERVICE_ADDR);
+	/* FIXME: alloc_queue_state() must not re-alloc if already existing. */
+	alloc_queue_state(caps[cap]);
+
+	return SUCCESS;
+}
+
+int capability_clear_recvctx(Capability cap)
+{
+	if (capability_exists(cap, "capability_clear_recvctx") != SUCCESS) {
+		return GENERIC_ERROR;
+	}
+
+	/* FIXME: alloc_queue_state() must not re-alloc if already existing. */
+
+	fprintf(stderr, "FIXME: missing dealloc_queue_state() \n");
+
+	return SUCCESS;
+}
+
+int capability_set_sendctx(Capability cap)
+{
+	if (capability_exists(cap, "capability_set_sendctx") != SUCCESS) {
+		return GENERIC_ERROR;
+	}
+
+	fprintf(stderr, "FIXME: missing capability_set_sendctx() \n");
+
+	return SUCCESS;
+}
+
+int capability_clear_sendctx(struct capability *ptr)
+{
+	/* if (capability_exists(cap, "capability_clear_sendctx") != SUCCESS) { */
+		/* return GENERIC_ERROR; */
+	/* } */
+
+	fprintf(stderr, "FIXME: missing capability_clear_sendctx() \n");
+
 	return SUCCESS;
 }
 

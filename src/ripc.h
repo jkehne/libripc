@@ -1,5 +1,6 @@
 /*  Copyright 2011, 2012 Jens Kehne
  *  Copyright 2012 Jan Stoess, Karlsruhe Institute of Technology
+ *  Copyright 2013, Andreas Waidler
  *
  *  LibRIPC is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License as published by the
@@ -19,6 +20,7 @@
 
 #include <stdint.h>
 #include <sys/types.h>
+#include "resolver/naming.h"
 
 #define RECV_BUF_SIZE 2000
 #define NUM_RECV_BUFFERS 10
@@ -42,8 +44,8 @@ uint8_t ripc_buf_register(void *buf, size_t size);
 uint8_t ripc_buf_unregister(void *buf);
 
 uint8_t ripc_send_short(
-		uint16_t src,
-		uint16_t dest,
+		Capability src,
+		Capability dest,
 		void **buf,
 		uint32_t *length,
 		uint16_t num_items,
@@ -53,8 +55,8 @@ uint8_t ripc_send_short(
 		);
 
 uint8_t ripc_send_long(
-		uint16_t src,
-		uint16_t dest,
+		Capability src,
+		Capability dest,
 		void **buf,
 		uint32_t *length,
 		uint16_t num_items,
@@ -64,8 +66,8 @@ uint8_t ripc_send_long(
 		);
 
 uint8_t ripc_receive(
-		uint16_t service_id,
-		uint16_t *from_service_id,
+		Capability service_id,
+		Capability *from_service_id,
 		void ***short_items,
 		uint32_t **short_item_sizes,
 		uint16_t *num_short_items,
