@@ -41,7 +41,8 @@ extern pthread_mutex_t rdma_connect_mutex;
 extern struct service_id rdma_service_id;
 extern pthread_t async_event_logger_thread;
 
-void alloc_queue_state(struct capability *ptr);
+void alloc_queue_state(struct service_id *sid);
+void alloc_queue_state2(struct capability *ptr);
 void *async_event_logger(void *context);
 
 #endif /* RESOURCES_H_ */

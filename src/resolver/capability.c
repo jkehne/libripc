@@ -281,8 +281,8 @@ int capability_set_recvctx(Capability cap)
 		return GENERIC_ERROR;
 	}
 
-	/* FIXME: alloc_queue_state() must not re-alloc if already existing. */
-	alloc_queue_state(caps[cap]);
+	/* FIXME: alloc_queue_state2() must not re-alloc if already existing. */
+	alloc_queue_state2(caps[cap]);
 
 	return SUCCESS;
 }
@@ -292,8 +292,6 @@ int capability_clear_recvctx(Capability cap)
 	if (capability_exists(cap, "capability_clear_recvctx") != SUCCESS) {
 		return GENERIC_ERROR;
 	}
-
-	/* FIXME: alloc_queue_state() must not re-alloc if already existing. */
 
 	fprintf(stderr, "FIXME: missing dealloc_queue_state() \n");
 

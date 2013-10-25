@@ -44,6 +44,17 @@ uint8_t ripc_buf_register(void *buf, size_t size);
 uint8_t ripc_buf_unregister(void *buf);
 
 uint8_t ripc_send_short(
+		uint16_t src,
+		uint16_t dest,
+		void **buf,
+		uint32_t *length,
+		uint16_t num_items,
+		void **return_bufs,
+		uint32_t *return_buf_lengths,
+		uint16_t num_return_bufs
+		);
+
+uint8_t ripc_send_short2(
 		Capability src,
 		Capability dest,
 		void **buf,
@@ -55,8 +66,8 @@ uint8_t ripc_send_short(
 		);
 
 uint8_t ripc_send_long(
-		Capability src,
-		Capability dest,
+		uint16_t src,
+		uint16_t dest,
 		void **buf,
 		uint32_t *length,
 		uint16_t num_items,
@@ -66,8 +77,8 @@ uint8_t ripc_send_long(
 		);
 
 uint8_t ripc_receive(
-		Capability service_id,
-		Capability *from_service_id,
+		uint16_t service_id,
+		uint16_t *from_service_id,
 		void ***short_items,
 		uint32_t **short_item_sizes,
 		uint16_t *num_short_items,

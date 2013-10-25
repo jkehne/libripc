@@ -119,6 +119,252 @@ void netarch_init(void) {
 
 uint8_t
 ripc_send_short(
+		uint16_t src,
+		uint16_t dest,
+		void **buf,
+		uint32_t *length,
+		uint16_t num_items,
+		void **return_bufs,
+		uint32_t *return_buf_lengths,
+		uint16_t num_return_bufs) {
+
+	DEBUG("Starting short send: %u -> %u (%u items)", src, dest, num_items);
+
+	uint32_t i;
+	uint32_t total_length = 0;
+        mem_buf_t mem_buf;
+        
+	for (i = 0; i < num_items; ++i)
+		total_length += length[i];
+
+	DEBUG("Total length: %u", total_length);
+#if 0
+	if (total_length > (
+			RECV_BUF_SIZE
+			- sizeof(struct msg_header)
+			- sizeof(struct short_header) * num_items
+			- sizeof(struct long_desc) * num_return_bufs
+			)) {
+		ERROR("Packet too long! Size: %u, maximum: %u",
+				total_length,
+				RECV_BUF_SIZE
+				- sizeof(struct msg_header)
+				- sizeof(struct short_header) * num_items
+				- sizeof(struct long_desc) * num_return_bufs
+				);
+		return -1; //probably won't fit at receiving end either
+	}
+#endif
+
+	//build packet header
+	struct ibv_mr *header_mr =
+			ripc_alloc_recv_buf(
+                                sizeof(struct msg_header)
+                                + sizeof(struct short_header) * num_items
+                                + sizeof(struct long_desc) * num_return_bufs
+                                ).na;
+	struct msg_header *hdr = (struct msg_header *)header_mr->addr;
+	struct short_header *msg = (struct short_header *)(
+			(uint64_t)hdr
+			+ sizeof(struct msg_header));
+	struct long_desc *return_bufs_msg = (struct long_desc *)(
+			(uint64_t)hdr
+			+ sizeof(struct msg_header)
+			+ sizeof(struct short_header) * num_items);
+
+
+	hdr->type = RIPC_MSG_SEND;
+	hdr->from = src;
+	hdr->to = dest;
+	hdr->short_words = num_items;
+	hdr->long_words = 0;
+	hdr->new_return_bufs = num_return_bufs;
+
+	struct ibv_sge sge[num_items + 1]; //+1 for header
+	sge[0].addr = (uint64_t)header_mr->addr;
+	sge[0].length = sizeof(struct msg_header)
+							+ sizeof(struct short_header) * num_items
+							+ sizeof(struct long_desc) * num_return_bufs;
+	sge[0].lkey = header_mr->lkey;
+
+	uint32_t offset =
+			40 //skip GRH
+			+ sizeof(struct msg_header)
+			+ sizeof(struct short_header) * num_items
+			+ sizeof(struct long_desc) * num_return_bufs;
+
+	for (i = 0; i < num_items; ++i) {
+
+		DEBUG("First message: offset %#x, length %u", offset, length[i]);
+		msg[i].offset = offset;
+		msg[i].size = length[i];
+
+		offset += length[i]; //offset of next message item
+
+		//make sure send buffers are registered with the hardware
+                mem_buf_t mem_buf = used_buf_list_get(buf[i]);
+		void *tmp_buf;
+
+		if (mem_buf.size == -1) { //not registered yet
+			DEBUG("mr not found in cache, creating new one");
+			if (! ripc_buf_register(buf[i], length[i])) {
+				mem_buf = used_buf_list_get(buf[i]);
+				assert(mem_buf.size > 0);
+				used_buf_list_add(mem_buf);
+				tmp_buf = buf[i];
+			} else {
+				mem_buf = ripc_alloc_recv_buf(length[i]);
+				tmp_buf = mem_buf.na->addr;
+				memcpy(tmp_buf,buf[i],length[i]);
+			}
+		} else {
+			DEBUG("Found mr in cache!");
+			used_buf_list_add(mem_buf);
+			tmp_buf = buf[i];
+		}
+
+		assert(mem_buf.na);
+		//assert(mr->length >= length[i]); //the hardware won't allow it anyway
+
+		sge[i + 1].addr = (uint64_t)tmp_buf;
+		sge[i + 1].length = length[i];
+		sge[i + 1].lkey = mem_buf.na->lkey;
+	}
+
+	//process new return buffers
+	for (i = 0; i < num_return_bufs; ++i) {
+		if (return_buf_lengths[i] == 0)
+			continue;
+		DEBUG("Found return buffer: address %p, size %zu",
+				return_bufs[i],
+				return_buf_lengths[i]);
+
+		if (return_bufs[i] == NULL) { //user wants us to allocate a buffer
+			DEBUG("User requested return buffer allocation");
+			mem_buf = ripc_alloc_recv_buf(return_buf_lengths[i]);
+
+		} else {
+			mem_buf = used_buf_list_get(return_bufs[i]);                       
+
+			if (mem_buf.size == -1) { //not registered, try to register now
+				DEBUG("Return buffer not registered, attempting registration");
+				ripc_buf_register(return_bufs[i], return_buf_lengths[i]);
+				mem_buf = used_buf_list_get(return_bufs[i]);
+				if (!mem_buf.size == -1) {
+                                        DEBUG("Registration failed, drop buffer");
+					continue;
+                                } else {
+                                        DEBUG("Registration successful! rkey is %#x", mem_buf.na->rkey);
+                                        used_buf_list_add(mem_buf);
+                                }
+
+			} else { //mr was registered
+				DEBUG("Found mr at address %lx, size %zu, rkey %#x",
+                                      mem_buf.addr, mem_buf.size, mem_buf.na->rkey);
+				//need to re-add the buffer even if it's too small
+				used_buf_list_add(mem_buf);
+
+				//check if the registered buffer is big enough to hold the return buffer
+				if ((uint64_t)return_bufs[i] + return_buf_lengths[i] > 
+                                    mem_buf.addr + mem_buf.size) {
+					DEBUG("Buffer is too small, skipping");
+					continue; //if it's too small, discard it
+				}
+			}
+		}
+
+		/*
+		 * At this point, we should have an mr, and we should know the buffer
+		 * represented by the mr is big enough for our return buffer.
+		 */
+		assert(mem_buf.na);
+		assert ((uint64_t)return_bufs[i] + return_buf_lengths[i] <= mem_buf.addr + mem_buf.size);
+
+		return_bufs_msg[i].addr =
+                        return_bufs[i] ? (uint64_t)return_bufs[i] : mem_buf.addr;
+		return_bufs_msg[i].length = return_buf_lengths[i];
+		return_bufs_msg[i].rkey = mem_buf.na->rkey;
+	}
+
+	if (!context.remotes[dest] && !context.services[src]->is_multicast) {
+		resolve(src, dest);
+		assert(context.remotes[dest]);
+	}
+
+	struct ibv_send_wr wr;
+	wr.next = NULL;
+	wr.opcode = IBV_WR_SEND;
+	wr.num_sge = num_items + 1;
+	wr.sg_list = sge;
+	wr.wr_id = 0xdeadbeef; //TODO: Make this a counter?
+	if (context.services[src]->is_multicast) {
+		wr.wr.ud.remote_qkey = 0xffff;
+		wr.wr.ud.remote_qpn = 0xffffff;
+		wr.wr.ud.ah = context.services[src]->na.mcast_ah;
+	} else {
+		wr.wr.ud.remote_qkey = (uint32_t)dest;
+		pthread_mutex_lock(&remotes_mutex);
+		wr.wr.ud.ah = context.remotes[dest]->na.ah;
+		wr.wr.ud.remote_qpn = context.remotes[dest]->na.qp_num;
+		pthread_mutex_unlock(&remotes_mutex);
+	}
+	wr.send_flags = IBV_SEND_SIGNALED;
+
+	DEBUG("Sending message containing %u items to service %u, qpn %u using qkey %d",
+			wr.num_sge,
+			dest,
+			wr.wr.ud.remote_qpn,
+			wr.wr.ud.remote_qkey);
+#ifdef HAVE_DEBUG
+	for (i = 0; i < wr.num_sge; ++i) {
+	ERROR("Item %u: address: %lx, length %u",
+			i,
+			wr.sg_list[i].addr,
+			wr.sg_list[i].length);
+	}
+#endif
+
+	struct ibv_send_wr *bad_wr = NULL;
+
+	pthread_mutex_lock(&services_mutex);
+	struct ibv_qp *dest_qp = context.services[src]->na.qp;
+	struct ibv_cq *dest_cq = context.services[src]->na.send_cq;
+	pthread_mutex_unlock(&services_mutex);
+
+	int ret = ibv_post_send(dest_qp, &wr, &bad_wr);
+
+	if (bad_wr) {
+		ERROR("Failed to post send: ", strerror(ret));
+		return ret;
+	} else {
+		DEBUG("Successfully posted send!");
+	}
+
+
+//#ifdef HAVE_DEBUG
+	struct ibv_wc wc;
+	while (!(ibv_poll_cq(dest_cq, 1, &wc))); //polling is probably faster here
+	//ibv_ack_cq_events(context.services[src]->recv_cq, 1);
+	DEBUG("received completion message!");
+	if (wc.status) {
+		ERROR("Send result: %s", ibv_wc_status_str(wc.status));
+		ERROR("Failed WR was:");
+		dump_wr(&wr, true);
+		ERROR("Failed WC was:");
+		dump_wc(&wc);
+		dump_qp_state(dest_qp);
+	}
+	DEBUG("Result: %s", ibv_wc_status_str(wc.status));
+//#endif
+
+	ripc_buf_free(hdr);
+
+	//return wc.status;
+	return ret;
+}
+
+uint8_t
+ripc_send_short2(
 		Capability src,
 		Capability dest,
 		void **buf,
@@ -365,8 +611,8 @@ ripc_send_short(
 
 uint8_t
 ripc_send_long(
-		Capability src,
-		Capability dest,
+		uint16_t src,
+		uint16_t dest,
 		void **buf,
 		uint32_t *length,
 		uint16_t num_items,
@@ -662,8 +908,8 @@ ripc_send_long(
 
 uint8_t
 ripc_receive(
-		Capability service_id,
-		Capability *from_service_id,
+		uint16_t service_id,
+		uint16_t *from_service_id,
 		void ***short_items,
 		uint32_t **short_item_sizes,
 		uint16_t *num_short_items,
