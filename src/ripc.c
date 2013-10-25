@@ -129,3 +129,7 @@ uint8_t ripc_register_multicast_service_id(int service_id) {
 	return true;
 
 }
+
+uint8_t ripc_init() {
+	return init();
+}

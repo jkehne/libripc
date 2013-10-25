@@ -374,7 +374,15 @@ ripc_send_short2(
 		uint32_t *return_buf_lengths,
 		uint16_t num_return_bufs) {
 
-	DEBUG("Starting short send: %u -> %u (%u items)", src, dest, num_items);
+	DEBUG("Starting short send 2: %u -> %u (%u items)", src, dest, num_items);
+
+	struct capability *local  = capability_get(src);
+	struct capability *remote = capability_get(dest);
+
+	if (!local || !remote) {
+		ERROR("Invalid cap passed to short send.");
+		return -1; // TODO: Correct?
+	}
 
 	uint32_t i;
 	uint32_t total_length = 0;
@@ -420,8 +428,8 @@ ripc_send_short2(
 
 
 	hdr->type = RIPC_MSG_SEND;
-	hdr->from = src;
-	hdr->to = dest;
+	hdr->from = src; // FIXME: this is a process-local ID.
+	hdr->to = dest; // FIXME
 	hdr->short_words = num_items;
 	hdr->long_words = 0;
 	hdr->new_return_bufs = num_return_bufs;
@@ -440,6 +448,8 @@ ripc_send_short2(
 			+ sizeof(struct long_desc) * num_return_bufs;
 
 	for (i = 0; i < num_items; ++i) {
+
+		// TODO: Add sender / response capability as first item in message. -- awaidler, 2013-10-25
 
 		DEBUG("First message: offset %#x, length %u", offset, length[i]);
 		msg[i].offset = offset;
@@ -532,31 +542,27 @@ ripc_send_short2(
 		return_bufs_msg[i].rkey = mem_buf.na->rkey;
 	}
 
-	if (!context.remotes[dest] && !context.services[src]->is_multicast) {
-		resolve(src, dest);
-		assert(context.remotes[dest]);
-	}
-
 	struct ibv_send_wr wr;
 	wr.next = NULL;
 	wr.opcode = IBV_WR_SEND;
 	wr.num_sge = num_items + 1;
 	wr.sg_list = sge;
 	wr.wr_id = 0xdeadbeef; //TODO: Make this a counter?
-	if (context.services[src]->is_multicast) {
-		wr.wr.ud.remote_qkey = 0xffff;
-		wr.wr.ud.remote_qpn = 0xffffff;
-		wr.wr.ud.ah = context.services[src]->na.mcast_ah;
-	} else {
-		wr.wr.ud.remote_qkey = (uint32_t)dest;
-		pthread_mutex_lock(&remotes_mutex);
-		wr.wr.ud.ah = context.remotes[dest]->na.ah;
-		wr.wr.ud.remote_qpn = context.remotes[dest]->na.qp_num;
+	// TODO: Add multicast support for capability-short-send -- awaidler, 2013-10-25
+	/* if (context.services[src]->is_multicast) { */
+		/* wr.wr.ud.remote_qkey = 0xffff; */
+		/* wr.wr.ud.remote_qpn = 0xffffff; */
+		/* wr.wr.ud.ah = context.services[src]->na.mcast_ah; */
+	/* } else { */
+		wr.wr.ud.remote_qkey = capability_get_qkey(remote);
+		pthread_mutex_lock(&remotes_mutex); // TODO: Fix locking  -- awaidler, 2013-10-25
+		wr.wr.ud.ah = remote->send->na.ah;
+		wr.wr.ud.remote_qpn = remote->send->na.qp_num;
 		pthread_mutex_unlock(&remotes_mutex);
-	}
+	/* } */
 	wr.send_flags = IBV_SEND_SIGNALED;
 
-	DEBUG("Sending message containing %u items to service %u, qpn %u using qkey %d",
+	DEBUG("Sending message containing %u items to cap %u, qpn %u using qkey %d",
 			wr.num_sge,
 			dest,
 			wr.wr.ud.remote_qpn,
@@ -573,8 +579,8 @@ ripc_send_short2(
 	struct ibv_send_wr *bad_wr = NULL;
 
 	pthread_mutex_lock(&services_mutex);
-	struct ibv_qp *dest_qp = context.services[src]->na.qp;
-	struct ibv_cq *dest_cq = context.services[src]->na.send_cq;
+	struct ibv_qp *dest_qp = local->recv->na.qp;
+	struct ibv_cq *dest_cq = local->recv->na.cq;
 	pthread_mutex_unlock(&services_mutex);
 
 	int ret = ibv_post_send(dest_qp, &wr, &bad_wr);

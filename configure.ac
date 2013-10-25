@@ -91,6 +91,26 @@ AC_CHECK_LIB([pthread],[pthread_create],[],[
 	exit -1
 ])
 
+AC_CHECK_LIB([zookeeper_mt],[zookeeper_init],[],[
+	echo "Error: ZooKeeper not found!"
+	exit -1
+])
+
+AC_CHECK_LIB([crypto],[SHA1],[],[
+	echo "Error: OpenSSL not found!"
+	exit -1
+])
+
+AC_CHECK_HEADER([zookeeper/zookeeper.h],[],[
+	echo "Error: ZooKeeper development headers not found!"
+	exit -1
+])
+
+AC_CHECK_HEADER([openssl/sha.h],[],[
+	echo "Error: OpenSSL development headers not found!"
+	exit -1
+])
+
 
 AM_CONDITIONAL([NETARCH_INFINIBAND], [ test $NETARCH = infiniband ])
 AM_CONDITIONAL([NETARCH_BGP], [ test $NETARCH = bgp ])

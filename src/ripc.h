@@ -30,6 +30,7 @@ extern "C" {
 #endif
 
 uint8_t init(void);
+uint8_t ripc_init(void);
 
 uint16_t ripc_register_random_service_id(void);
 uint8_t ripc_register_service_id(int);

@@ -29,6 +29,7 @@
 #define SERVER_SERVICE_ID 1
 #define CLIENT_RETURN_BUFFERS 0
 #define SERVER_RETURN_BUFFERS 0
+#define XCHANGE_SERVICE "XChangeService"
 
 #define ERROR(...) do { fprintf(stderr, "%s() (%s, line %u): ", __PRETTY_FUNCTION__, __FILE__, __LINE__); fprintf(stderr, __VA_ARGS__); fprintf(stderr,"\n"); } while (0)
 #define panic(...) do { fprintf(stderr, "%s() (%s, line %u): FATAL: ", __PRETTY_FUNCTION__, __FILE__, __LINE__); fprintf(stderr, __VA_ARGS__); fprintf(stderr,"\n"); exit(EXIT_FAILURE); } while (0)

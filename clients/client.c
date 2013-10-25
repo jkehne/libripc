@@ -1,5 +1,6 @@
 /*  Copyright 2011, 2012 Jens Kehne
  *  Copyright 2012 Jan Stoess, Karlsruhe Institute of Technology
+ *  Copyright 2013, Andreas Waidler
  *
  *  LibRIPC is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License as published by the
@@ -21,23 +22,84 @@
 #include "config.h"
 #include "common.h"
 
-int main(void) {
-	ripc_register_service_id(1);
-	int i, len;
-	char *msg = "Hello World!";
-	char *tmp_msg = ripc_buf_alloc(strlen(msg) + 10);
-	void *msg_array[2];
-	msg_array[0] = ripc_buf_alloc(sizeof(i));
-	msg_array[1] = ripc_buf_alloc(strlen(msg));
-	size_t length_array[2];
-	for (i = 0; true; ++i) {
-		*(int *)msg_array[0] = i;
-		length_array[0] = sizeof(i);
-		//msg_array[1] = (void *)msg;
-		strcpy((char *)msg_array[1],msg);
-		length_array[1] = strlen(msg);
-		ripc_send_short(1, 4, msg_array, length_array, 2, NULL, NULL, 0);
-		sleep(1);
+void onChange(Capability srv)
+{
+	fprintf(stderr, "!!! Service migrated: ");
+	capability_debug(srv);
+}
+
+int main(void)
+{
+	ripc_init();
+
+	fprintf(stderr, "LibRIPC simple message sending client.\n");
+
+	fprintf(stderr, "--- Creating capability for local process.\n");
+	Capability us = capability_create("RandomClientProcess");
+	if (us == INVALID_CAPABILITY) {
+		fprintf(stderr, "--- Could not create capability for us.\n");
+		return 1;
 	}
-	return EXIT_SUCCESS;
+
+	fprintf(stderr, "--- Okay, so we are: "); capability_debug(us);
+
+
+	fprintf(stderr, "--- Looking up destination service \"%s\".\n", XCHANGE_SERVICE);
+
+	Capability srv;
+	while ((srv = service_lookup(XCHANGE_SERVICE, onChange)) == INVALID_CAPABILITY) {
+		const uint8_t t = 3;
+		fprintf(stderr, "--- Lookup failed, trying again in %d seconds.\n", t);
+		sleep(t);
+	}
+
+	fprintf(stderr, "--- Server found: "); capability_debug(srv);
+
+	void *msg_array[1];
+	uint32_t length_array[1];
+	uint32_t packet_size = 100;
+
+	msg_array[0] = ripc_buf_alloc(packet_size);
+	memset(msg_array[0], 0, packet_size);
+
+	fprintf(stderr, "message> ");
+	char *input = NULL;
+	getline(&input, packet_size, stdin);
+	strncpy((char *)msg_array[0], input, packet_size - 1);
+
+	length_array[0] = strlen(msg_array[0]) + 1; // + \0
+
+	fprintf(stderr, "--- Sending message... \n");
+
+	int result = ripc_send_short2(
+		us,
+		srv,
+		msg_array,
+		length_array,
+		1,
+		NULL,
+		NULL,
+		0);
+
+	fprintf(stderr, "--- LibRIPC returned '%d'.\n", result);
+
+	return 0;
+
+	/* int i, len; */
+	/* char *msg = "Hello World!"; */
+	/* char *tmp_msg = ripc_buf_alloc(strlen(msg) + 10); */
+	/* void *msg_array[2]; */
+	/* msg_array[0] = ripc_buf_alloc(sizeof(i)); */
+	/* msg_array[1] = ripc_buf_alloc(strlen(msg)); */
+	/* size_t length_array[2]; */
+	/* for (i = 0; true; ++i) { */
+		/* *(int *)msg_array[0] = i; */
+		/* length_array[0] = sizeof(i); */
+		/* //msg_array[1] = (void *)msg; */
+		/* strcpy((char *)msg_array[1],msg); */
+		/* length_array[1] = strlen(msg); */
+		/* ripc_send_short(1, 4, msg_array, length_array, 2, NULL, NULL, 0); */
+		/* sleep(1); */
+	/* } */
+	/* return EXIT_SUCCESS; */
 }

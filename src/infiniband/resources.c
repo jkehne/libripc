@@ -24,7 +24,7 @@ pthread_mutex_t rdma_connect_mutex;
 pthread_t async_event_logger_thread;
 
 uint32_t capability_get_qkey(struct capability *cap) {
-	return cap->send->is_multicast ? 0xffff : 1 ; // TODO: Generate Q_Key from name.
+	return cap->send->is_multicast ? 0xffff : (uint32_t) 'Q' ; // TODO: Generate Q_Key from name.
 }
 
 bool join_and_attach_multicast(struct service_id *service_id) {
