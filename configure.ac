@@ -125,7 +125,7 @@ AC_CHECK_HEADER([pthread.h],[],[
 	exit -1
 ])
 
-AC_FUNC_MALLOC
+dnl  AC_FUNC_MALLOC FIXME: This produced undefined references to rpl_malloc -- awaidler, 2013-10-25
 
 AC_ARG_ENABLE([debug],AS_HELP_STRING([--enable-debug], [enable debug output (overwrites CFLAGS!)]))
 AS_IF([test "x$enable_debug" = "xyes"], [AC_DEFINE([HAVE_DEBUG], [1], [Define to 1 if debug output should be enabled.])])
