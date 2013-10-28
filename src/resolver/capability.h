@@ -9,7 +9,7 @@
 
 #define LEN_SERVICE_PASS 63
 
-#define MAX_CAPS 256
+#define MAX_CAPS UINT16_MAX
 
 /**
  * Represents a capability for a ZNode.

@@ -103,7 +103,7 @@ int main(void) {
 
 		printf("Received message. "
 			"Number of items: '%d' ('%d' s, '%d' l). "
-			"Text: '%s'.\n",
+			"Text: %s",
 			num_items,
 			num_short,
 			num_long,
@@ -122,22 +122,32 @@ int main(void) {
 
 		struct cap_list_node *it = head.next;
 		while (it != NULL) {
-			int result = ripc_send_short2(
-				srv,
-				it->cap,
-				msg_array,
-				length_array,
-				1,
-				NULL,
-				NULL,
-				0);
+			if (it->cap != from) { /* Skip sender of that message. */
+				result = ripc_send_short2(
+					srv,
+					it->cap,
+					msg_array,
+					length_array,
+					1,
+					NULL,
+					NULL,
+					0);
+			}
 			it = it->next;
 		}
 
-		last->next = malloc(sizeof(struct cap_list_node));
-		last->next->cap = from;
-		last->next->next = NULL;
-		last = last->next;
+		it = head.next;
+		while (it != NULL && it->cap != from) {
+			it = it->next;
+		}
+
+		if (!it) {
+			/* Cap not in list, so this won't create a duplicate. */
+			last->next = malloc(sizeof(struct cap_list_node));
+			last->next->cap = from;
+			last->next->next = NULL;
+			last = last->next;
+		}
 
 		ripc_buf_free(short_items[0]);
 	}

@@ -25,10 +25,20 @@
 
 pthread_t display_thread;
 
+#define PROMPT "> "
+
+char name[1024] = { 0 };
+
+void pp() {
+	printf("%s%s", name, PROMPT);
+	fflush(stdout);
+}
+
 void onChange(Capability srv)
 {
-	fprintf(stderr, "!!! Service migrated: ");
+	fprintf(stderr, "\r!!! Service migrated: ");
 	capability_debug(srv);
+	pp();
 }
 
 Capability us = INVALID_CAPABILITY;
@@ -53,7 +63,8 @@ void *display(void *arg)
 				&long_sizes,
 				&num_long);
 
-		printf("%s\n", (char *)short_items[0]);
+		printf("\r%s", (char *)short_items[0]);
+		pp();
 
 		ripc_buf_free(short_items[0]);
 	}
@@ -67,7 +78,8 @@ int main(void)
 	fprintf(stderr, "LibRIPC simple message sending client.\n");
 
 	fprintf(stderr, "--- Creating capability for local process.\n");
-	us = capability_create("RandomClientProcess");
+	snprintf(name, 1023, "User%d", rand() % 100);
+	us = capability_create(name);
 	if (us == INVALID_CAPABILITY) {
 		fprintf(stderr, "--- Could not create capability for us.\n");
 		return 1;
@@ -98,14 +110,14 @@ int main(void)
 		msg_array[0] = ripc_buf_alloc(packet_size);
 		memset(msg_array[0], 0, packet_size);
 
-		fprintf(stderr, "> ");
+		pp();
 		fgets(input, packet_size, stdin);
 		DEBUG("Message to be sent: '%s'", input);
 
 		strncpy((char *)msg_array[0], input, packet_size - 1);
 		length_array[0] = strlen(msg_array[0]) + 1; // + \0
 
-		fprintf(stderr, "--- Sending message... \n");
+		DEBUG("--- Sending message...");
 
 		int result = ripc_send_short2(
 			us,
@@ -118,7 +130,7 @@ int main(void)
 			0);
 
 
-		fprintf(stderr, "--- LibRIPC returned '%d'.\n", result);
+		DEBUG("--- LibRIPC returned '%d'.", result);
 
 		ripc_buf_free(msg_array[0]);
 	} while (true);

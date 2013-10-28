@@ -127,6 +127,11 @@ void capability_free(Capability cap)
 		return;
 	}
 
+	/* TODO: Add reference counter to structs.
+	 *       ripc_receive2() can return an already existing cap,
+	 *       probably to another thread.
+	 *       ==> unexpected behaviour
+	 */
 	free(caps[cap]);
 	caps[cap] = NULL;
 }
@@ -153,6 +158,29 @@ Capability capability_create_empty()
 
 Capability capability_from_sender(const char* sendername, struct netarch_address_record *data)
 {
+	/* Do not create another capability if we already have one. */
+	Capability i = 0;
+	for (i = 0; i < MAX_CAPS; ++i) {
+		struct capability *ptr = caps[i];
+		if (!ptr) continue; /* Skip unused capabilities. */
+		if (ptr->recv) continue; /* Sender caps NEVER have admin rights. */
+		if (strcmp(ptr->name, sendername) != 0) continue; /* Names must match. */
+		if (!ptr->send /* Address must match. */
+		|| ptr->send->na.lid != data->lid
+		|| ptr->send->na.qp_num != data->qp_num) continue;
+
+		break; /* Found one. */
+	}
+
+	DEBUG("Loop terminated with i='%d'", i);
+
+	if (i < MAX_CAPS && i != INVALID_CAPABILITY) {
+		return i;
+	}
+
+	DEBUG("Did not find an existing capability for '%s' with lid='%d' and qpn='%d'",
+			sendername, data->lid, data->qpn);
+
 	Capability cap = capability_create_empty();
 	if (cap == INVALID_CAPABILITY) {
 		DEBUG("Could not allocate local capability for sender '%s'.\n", sendername);

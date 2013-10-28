@@ -26,6 +26,9 @@ struct netarch_address_record {
  */
 struct netarch_sending {
 	uint32_t qp_num;
+	uint32_t lid; // Used to check whether netarch_address_record references a certain cap.
+	              // TODO: We can directly include netarch_address_record
+		      // here to make coding easier.
 	struct ibv_cq *cq;
 	struct ibv_ah *ah;
 	struct netarch_rdma_context *rdma[UINT16_MAX];
