@@ -374,7 +374,7 @@ ripc_send_short2(
 		uint32_t *return_buf_lengths,
 		uint16_t num_return_bufs) {
 
-	DEBUG("Starting short send 2: %u -> %u (%u items)", src, dest, num_items);
+	DEBUG("Starting short_send2: %u -> %u (%u items)", src, dest, num_items);
 
 	struct capability *local  = capability_get(src);
 	struct capability *remote = capability_get(dest);
@@ -413,37 +413,39 @@ ripc_send_short2(
 	//build packet header
 	struct ibv_mr *header_mr =
 			ripc_alloc_recv_buf(
-                                sizeof(struct msg_header)
+                                sizeof(struct msg_header2)
                                 + sizeof(struct short_header) * num_items
                                 + sizeof(struct long_desc) * num_return_bufs
                                 ).na;
-	struct msg_header *hdr = (struct msg_header *)header_mr->addr;
+	struct msg_header2 *hdr = (struct msg_header2 *)header_mr->addr;
 	struct short_header *msg = (struct short_header *)(
 			(uint64_t)hdr
-			+ sizeof(struct msg_header));
+			+ sizeof(struct msg_header2));
 	struct long_desc *return_bufs_msg = (struct long_desc *)(
 			(uint64_t)hdr
-			+ sizeof(struct msg_header)
+			+ sizeof(struct msg_header2)
 			+ sizeof(struct short_header) * num_items);
 
 
 	hdr->type = RIPC_MSG_SEND;
-	hdr->from = src; // FIXME: this is a process-local ID.
-	hdr->to = dest; // FIXME
+	strcpy(hdr->src_name, local->name);
+	strcpy(hdr->dest_name, remote->name);
+	hdr->src_addr.lid = context.na.lid;
+	hdr->src_addr.qp_num = local->send->na.qp_num;
 	hdr->short_words = num_items;
 	hdr->long_words = 0;
 	hdr->new_return_bufs = num_return_bufs;
 
 	struct ibv_sge sge[num_items + 1]; //+1 for header
 	sge[0].addr = (uint64_t)header_mr->addr;
-	sge[0].length = sizeof(struct msg_header)
+	sge[0].length = sizeof(struct msg_header2)
 							+ sizeof(struct short_header) * num_items
 							+ sizeof(struct long_desc) * num_return_bufs;
 	sge[0].lkey = header_mr->lkey;
 
 	uint32_t offset =
 			40 //skip GRH
-			+ sizeof(struct msg_header)
+			+ sizeof(struct msg_header2)
 			+ sizeof(struct short_header) * num_items
 			+ sizeof(struct long_desc) * num_return_bufs;
 
@@ -580,7 +582,7 @@ ripc_send_short2(
 
 	pthread_mutex_lock(&services_mutex);
 	struct ibv_qp *dest_qp = local->recv->na.qp;
-	struct ibv_cq *dest_cq = local->recv->na.cq;
+	struct ibv_cq *dest_cq = local->send->na.cq;
 	pthread_mutex_unlock(&services_mutex);
 
 	int ret = ibv_post_send(dest_qp, &wr, &bad_wr);
@@ -1250,7 +1252,7 @@ ripc_receive2(
 	/* TODO: Check whether caps are valid. */
 
 	struct capability *cap = capability_get(local);
-
+	assert(cap);
 	assert(cap->recv);
 	cchannel = cap->recv->na.cchan;
 	recv_cq = cap->recv->na.cq;
@@ -1291,11 +1293,9 @@ ripc_receive2(
 	post_new_recv_buf(qp);
 
 	struct ibv_recv_wr *wr = (struct ibv_recv_wr *)(wc.wr_id);
-	struct msg_header *hdr = (struct msg_header *)(wr->sg_list->addr + 40);
+	struct msg_header2 *hdr = (struct msg_header2 *)(wr->sg_list->addr + 40);
 
-	/* FIXME: Update short message headers! */
-	/* if ((hdr->type != RIPC_MSG_SEND) || (hdr->to != service_id)) { */
-	if ((hdr->type != RIPC_MSG_SEND)) {
+	if ((hdr->type != RIPC_MSG_SEND) || strcmp(hdr->dest_name, cap->name) != 0) {
 		ripc_buf_free(hdr);
 		free(wr->sg_list);
 		free(wr);
@@ -1305,7 +1305,7 @@ ripc_receive2(
 
 	DEBUG("Message type is %#x", hdr->type);
 
-	DEBUG("Message from: %d, short words: %d, long words: %d", hdr->from, hdr->short_words, hdr->long_words);
+	DEBUG("Message from: %s, short words: %d, long words: %d", hdr->src_name, hdr->short_words, hdr->long_words);
 
 	//the next block can cause segmentation faults. Disable it for now until
 	//the error is found.
@@ -1341,18 +1341,18 @@ ripc_receive2(
 	struct short_header *msg =
 			(struct short_header *)(wr->sg_list->addr
 					+ 40 //skip GRH
-					+ sizeof(struct msg_header));
+					+ sizeof(struct msg_header2));
 
 	struct long_desc *long_msg =
 			(struct long_desc *)(wr->sg_list->addr
 					+ 40 //skip GRH
-					+ sizeof(struct msg_header)
+					+ sizeof(struct msg_header2)
 					+ sizeof(struct short_header) * hdr->short_words);
 
 	struct long_desc *return_bufs =
 			(struct long_desc *)(wr->sg_list->addr
 					+ 40 //skip GRH
-					+ sizeof(struct msg_header)
+					+ sizeof(struct msg_header2)
 					+ sizeof(struct short_header) * hdr->short_words
 					+ sizeof(struct long_desc) * hdr->long_words);
 
@@ -1502,6 +1502,12 @@ ripc_receive2(
 //		(*long_item_sizes)[i] = long_msg[i].length;
 //	}
 
+	Capability sender = capability_from_sender(hdr->src_name, &(hdr->src_addr));
+	if (sender == INVALID_CAPABILITY) {
+		ERROR("ERROR: Could not extract sender capability.");
+		return;
+	}
+
 	mem_buf_t mem_buf;
 	for (i = 0; i < hdr->new_return_bufs; ++i) {
 		DEBUG("Found new return buffer: Address %lx, length %zu, rkey %#x",
@@ -1526,13 +1532,16 @@ ripc_receive2(
 			mem_buf.addr = (uint64_t) mem_buf.na->addr;
 			mem_buf.size = mem_buf.na->length;
 
-			return_buf_list_add(hdr->from, mem_buf);
+			/* FIXME: The following line is a dangerous hack (replaced sID by cap) */
+			return_buf_list_add(sender, mem_buf);
 
-			DEBUG("Saved return buffer for destination %u", hdr->from);
+			DEBUG("Saved return buffer for capability %u", sender);
 		}
 	}
 
-	*remote = hdr->from; /* FIXME */
+	*remote = sender;
+	DEBUG("Just returned cap '%d'", *remote);
+
 	*num_short_items = hdr->short_words;
 	*num_long_items = hdr->long_words;
 

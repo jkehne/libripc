@@ -50,7 +50,10 @@ typedef bool _Bool;
 #include <local/common.h>
 #endif
 
+#include <resolver/naming.h>
 #include <memory.h>
+
+#include <resolver/netarch_context.h>
 
 #define ERROR(...) do { fprintf(stderr, "Thread %u: %s() (%s, line %u): ", (uint32_t)syscall(SYS_gettid), __PRETTY_FUNCTION__, __FILE__, __LINE__); fprintf(stderr, __VA_ARGS__); fprintf(stderr,"\n"); } while (0)
 #define panic(...) do { fprintf(stderr, "Thread %u: %s() (%s, line %u): FATAL: ", (int) pthread_self(), __PRETTY_FUNCTION__, __FILE__, __LINE__); fprintf(stderr, __VA_ARGS__); fprintf(stderr,"\n"); exit(EXIT_FAILURE); } while (0)
@@ -103,6 +106,20 @@ struct msg_header {
 	enum msg_type type;
 	uint16_t from;
 	uint16_t to;
+	uint16_t short_words;
+	uint16_t long_words;
+	uint16_t new_return_bufs;
+};
+
+struct msg_header2 {
+	enum msg_type type;
+	char src_name[LEN_SERVICE_NAME + 1];
+	struct netarch_address_record src_addr;
+	/* Destination is required to discard spurious messages.
+	 * However, it wastes much memory.
+	 * TODO: Find a better solution.
+	 */
+	char dest_name[LEN_SERVICE_NAME + 1];
 	uint16_t short_words;
 	uint16_t long_words;
 	uint16_t new_return_bufs;

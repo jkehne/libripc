@@ -6,6 +6,8 @@
 #include "zkadapter.h"
 #include "address.h"
 #include "base64.h"
+#include "netarch_context.h"
+#include "netarch.h"
 
 
 static struct capability *caps[MAX_CAPS];
@@ -147,6 +149,25 @@ Capability capability_create_empty()
 	}
 
 	return result;
+}
+
+Capability capability_from_sender(const char* sendername, struct netarch_address_record *data)
+{
+	Capability cap = capability_create_empty();
+	if (cap == INVALID_CAPABILITY) {
+		DEBUG("Could not allocate local capability for sender '%s'.\n", sendername);
+		return INVALID_CAPABILITY;
+	}
+
+	strncpy(caps[cap]->name, sendername, LEN_SERVICE_NAME);
+	if (netarch_store_sendctx_in_cap(caps[cap], data) != SUCCESS) {
+		ERROR("Fail!"); // TODO
+		return INVALID_CAPABILITY;
+	}
+
+	DEBUG("Now have capability '%d'=>'%s'", cap, capability_get_service_name(cap));
+
+	return cap;
 }
 
 Capability capability_create(const char* servicename)

@@ -23,6 +23,13 @@
 #include "config.h"
 #include "common.h"
 
+struct cap_list_node {
+	Capability cap;
+	struct cap_list_node *next;
+} head = { .cap = INVALID_CAPABILITY, .next = NULL };
+
+struct cap_list_node *last = &head;
+
 int main(void) {
 	int result = SUCCESS;
 	ripc_init();
@@ -80,13 +87,8 @@ int main(void) {
 	uint32_t *short_sizes, *long_sizes;
 	int num_items;
 	uint16_t num_short, num_long;
+	Capability pre_from = INVALID_CAPABILITY;
 	Capability from;
-
-	void *ack_array[1];
-	uint32_t ack_length_array[1];
-	ack_array[0] = ripc_buf_alloc(4);
-	strncpy((char *)ack_array[0], "ACK", 3);
-	ack_length_array[0] = 4; // + \0
 
 	while(true) {
 		num_items = ripc_receive2(
@@ -107,20 +109,40 @@ int main(void) {
 			num_long,
 			(char *)short_items[0]);
 
-		result = ripc_send_short2(
-			srv,
-			&from,
-			ack_array,
-			ack_length_array,
-			1,
-			NULL,
-			NULL,
-			0);
+		void *msg_array[1];
+		uint32_t length_array[1];
+		uint32_t packet_size = 100;
+
+		msg_array[0] = ripc_buf_alloc(packet_size);
+		memset(msg_array[0], 0, packet_size);
+		snprintf(msg_array[0], packet_size, "%s> %s",
+				capability_get_service_name(from),
+				(char*) short_items[0]);
+		length_array[0] = strlen(msg_array[0]) + 1; // + \0
+
+		struct cap_list_node *it = head.next;
+		while (it != NULL) {
+			int result = ripc_send_short2(
+				srv,
+				it->cap,
+				msg_array,
+				length_array,
+				1,
+				NULL,
+				NULL,
+				0);
+			it = it->next;
+		}
+
+		last->next = malloc(sizeof(struct cap_list_node));
+		last->next->cap = from;
+		last->next->next = NULL;
+		last = last->next;
 
 		ripc_buf_free(short_items[0]);
 	}
 
-	ripc_buf_free(ack_array[0]);
+	/* ripc_buf_free(ack_array[0]); */
 
 
 //	ripc_register_service_id(4);

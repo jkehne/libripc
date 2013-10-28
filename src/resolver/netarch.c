@@ -34,7 +34,7 @@ int netarch_store_sendctx_in_cap(struct capability *ptr, struct netarch_address_
 	ptr->send->na.qp_num = data->qp_num;
 	ptr->send->na.ah = ibv_create_ah(context.na.pd, &ah_attr);
 
-	DEBUG("Created sendctx '%p' { '%d', '%p' }", ptr->send, ptr->send->na.qp_num, ptr->send->na.ah);
+	DEBUG("Created sendctx '%p'={ '%d', '%p'={ dlid='%d' } }.", ptr->send, ptr->send->na.qp_num, ptr->send->na.ah, ah_attr.dlid);
 
 	return SUCCESS;
 }

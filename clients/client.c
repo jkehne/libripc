@@ -21,11 +21,42 @@
 #include "../src/ripc.h"
 #include "config.h"
 #include "common.h"
+#include <pthread.h>
+
+pthread_t display_thread;
 
 void onChange(Capability srv)
 {
 	fprintf(stderr, "!!! Service migrated: ");
 	capability_debug(srv);
+}
+
+Capability us = INVALID_CAPABILITY;
+
+void *display(void *arg)
+{
+	Capability srv;
+
+	while(true) {
+		void **short_items = NULL, **long_items = NULL;
+		uint32_t *short_sizes, *long_sizes;
+		int num_items;
+		uint16_t num_short, num_long;
+
+		ripc_receive2(
+				us,
+				&srv,
+				&short_items,
+				&short_sizes,
+				&num_short,
+				&long_items,
+				&long_sizes,
+				&num_long);
+
+		printf("%s\n", (char *)short_items[0]);
+
+		ripc_buf_free(short_items[0]);
+	}
 }
 
 int main(void)
@@ -36,7 +67,7 @@ int main(void)
 	fprintf(stderr, "LibRIPC simple message sending client.\n");
 
 	fprintf(stderr, "--- Creating capability for local process.\n");
-	Capability us = capability_create("RandomClientProcess");
+	us = capability_create("RandomClientProcess");
 	if (us == INVALID_CAPABILITY) {
 		fprintf(stderr, "--- Could not create capability for us.\n");
 		return 1;
@@ -49,12 +80,14 @@ int main(void)
 
 	Capability srv;
 	while ((srv = service_lookup(XCHANGE_SERVICE, onChange)) == INVALID_CAPABILITY) {
-		const uint8_t t = 3;
+		const uint8_t t = 10;
 		fprintf(stderr, "--- Lookup failed, trying again in %d seconds.\n", t);
 		sleep(t);
 	}
 
 	fprintf(stderr, "--- Server found: "); capability_debug(srv);
+
+	pthread_create(&display_thread, NULL, &display, NULL);
 
 	void *msg_array[1];
 	uint32_t length_array[1];
@@ -65,7 +98,7 @@ int main(void)
 		msg_array[0] = ripc_buf_alloc(packet_size);
 		memset(msg_array[0], 0, packet_size);
 
-		fprintf(stderr, "message> ");
+		fprintf(stderr, "> ");
 		fgets(input, packet_size, stdin);
 		DEBUG("Message to be sent: '%s'", input);
 
@@ -84,7 +117,10 @@ int main(void)
 			NULL,
 			0);
 
+
 		fprintf(stderr, "--- LibRIPC returned '%d'.\n", result);
+
+		ripc_buf_free(msg_array[0]);
 	} while (true);
 
 	return 0;

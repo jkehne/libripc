@@ -5,6 +5,7 @@
 #include <stddef.h>
 #include "naming.h"
 #include "context.h"
+#include "netarch_context.h"
 
 #define LEN_SERVICE_PASS 63
 
@@ -43,5 +44,6 @@ int capability_set_sendctx(Capability cap);
 int capability_set_recvctx(Capability cap);
 int capability_clear_sendctx(struct capability *ptr);
 int capability_clear_recvctx(Capability cap);
+Capability capability_from_sender(const char* sendername, struct netarch_address_record *data);
 
 #endif /* CAPABILITY_H_ */
