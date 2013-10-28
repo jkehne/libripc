@@ -1,6 +1,6 @@
 /*  Copyright 2011, 2012 Jens Kehne
  *  Copyright 2012 Jan Stoess, Karlsruhe Institute of Technology
- *  Copyright 2013, Andreas Waidler
+ *  Copyright 2013 Andreas Waidler
  *
  *  LibRIPC is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License as published by the
@@ -31,6 +31,7 @@ void onChange(Capability srv)
 int main(void)
 {
 	ripc_init();
+	sleep(1);
 
 	fprintf(stderr, "LibRIPC simple message sending client.\n");
 
@@ -58,30 +59,33 @@ int main(void)
 	void *msg_array[1];
 	uint32_t length_array[1];
 	uint32_t packet_size = 100;
+	char input[1024];
 
-	msg_array[0] = ripc_buf_alloc(packet_size);
-	memset(msg_array[0], 0, packet_size);
+	do {
+		msg_array[0] = ripc_buf_alloc(packet_size);
+		memset(msg_array[0], 0, packet_size);
 
-	fprintf(stderr, "message> ");
-	char *input = NULL;
-	getline(&input, packet_size, stdin);
-	strncpy((char *)msg_array[0], input, packet_size - 1);
+		fprintf(stderr, "message> ");
+		fgets(input, packet_size, stdin);
+		DEBUG("Message to be sent: '%s'", input);
 
-	length_array[0] = strlen(msg_array[0]) + 1; // + \0
+		strncpy((char *)msg_array[0], input, packet_size - 1);
+		length_array[0] = strlen(msg_array[0]) + 1; // + \0
 
-	fprintf(stderr, "--- Sending message... \n");
+		fprintf(stderr, "--- Sending message... \n");
 
-	int result = ripc_send_short2(
-		us,
-		srv,
-		msg_array,
-		length_array,
-		1,
-		NULL,
-		NULL,
-		0);
+		int result = ripc_send_short2(
+			us,
+			srv,
+			msg_array,
+			length_array,
+			1,
+			NULL,
+			NULL,
+			0);
 
-	fprintf(stderr, "--- LibRIPC returned '%d'.\n", result);
+		fprintf(stderr, "--- LibRIPC returned '%d'.\n", result);
+	} while (true);
 
 	return 0;
 

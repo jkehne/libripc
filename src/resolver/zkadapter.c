@@ -11,7 +11,7 @@
 
 // TODO: Refactor functions to expect struct capability *
 
-#define ZK_CHROOT "/dummy002"
+#define ZK_CHROOT "/libRIPC"
 #define ZK_TIMEOUT 10000
 #define ZK_LOGLEVEL ZOO_LOG_LEVEL_WARN
 
@@ -232,6 +232,7 @@ int zka_login()
 
 	zoo_set_debug_level(ZK_LOGLEVEL);
 
+	DEBUG("Connecting to ZK via '%s'", srv);
 	zk = zookeeper_init(srv, NULL, ZK_TIMEOUT, zid, NULL, 0);
 	if (!zk) {
 		perror("zookeeper_init()");
@@ -289,6 +290,8 @@ int zka_assure_connection(const char *func_name)
 		fprintf(stderr, "%s(): Not connected.\n", func_name);
 		return GENERIC_ERROR;
 	}
+
+	DEBUG("We are connected to ZooKeeper.");
 
 	return SUCCESS;
 }
@@ -520,6 +523,11 @@ int zka_create(const char *path, struct netarch_address_record *data, struct ACL
 
 int zka_service_create(Capability cap)
 {
+	int result;
+	if ((result = zka_assure_connection("zka_service_create")) != SUCCESS) {
+		return result;
+	}
+
 	char creds[LEN_ZK_CREDS + 1] = { 0 };
 	creds_for_acl(creds, capability_get_service_name(cap), capability_get_service_pass(cap));
 
@@ -540,12 +548,13 @@ int zka_service_create(Capability cap)
 	zka_path_from_name(path, capability_get_service_name(cap));
 
 	struct netarch_address_record data = { 0 };
-	int result = netarch_read_sendctx_from_cap(capability_get(cap), &data); // TODO encapsulation
+	result = netarch_read_sendctx_from_cap(capability_get(cap), &data); // TODO encapsulation
 	if (result != SUCCESS) {
 		fprintf(stderr, "zka_service_create(): FIXME\n");
 		return result;
 	}
 
+	DEBUG("Calling ZK: zka_service_create('%s', '%p', '%p')", path, &data, &acl);
 	result = zka_create(path, &data, &acl);
 	if (result == SERVICE_EXISTS) {
 #ifdef DEBUG

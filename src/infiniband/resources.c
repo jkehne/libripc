@@ -725,7 +725,7 @@ void alloc_queue_state2(struct capability *cap) {
 		 * context as well. We do not want to lose this information
 		 * when stripping receiver rights from this capability. */
 		cap->send->na.qp_num = (cap->recv->na.qp)->qp_num;
-		DEBUG("Allocated queue pair: %u", cap->send->qp_num);
+		DEBUG("Allocated queue pair: %u", cap->send->na.qp_num);
 	}
 
 	struct ibv_qp_attr attr;

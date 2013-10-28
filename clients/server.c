@@ -1,5 +1,6 @@
 /*  Copyright 2011, 2012 Jens Kehne
  *  Copyright 2012 Jan Stoess, Karlsruhe Institute of Technology
+ *  Copyright 2013 Andreas Waidler
  *
  *  LibRIPC is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License as published by the
@@ -17,21 +18,79 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include "../src/ripc.h"
 #include "config.h"
 #include "common.h"
 
 int main(void) {
-	ripc_register_service_id(4);
+	int result = SUCCESS;
+	ripc_init();
+	sleep(1);
+
+	fprintf(stderr, "LibRIPC message service %s.\n", XCHANGE_SERVICE);
+
+	fprintf(stderr, "--- Trying to deserialize old capability...\n");
+	Capability srv = capability_deserialize(XCHANGE_SERVICE);
+	if (srv == INVALID_CAPABILITY) {
+		fprintf(stderr, "--- Deserialization failed.\n"
+				"--- This usually means that the service has not been created yet (or else we've lost data to access it).\n"
+				"--- Trying to create that service...\n");
+
+		srv = capability_create(XCHANGE_SERVICE);
+		if (srv == INVALID_CAPABILITY) {
+			fprintf(stderr, "--- Capability creation failed. This should NEVER happen.\n");
+			return -1;
+		}
+
+		/* fprintf(stderr, "--- Capability is "); capability_debug(test); */
+
+		/* fprintf(stderr, "--- Serializing it for future use...\n"); */
+		if (capability_serialize(srv, XCHANGE_SERVICE)) {
+			fprintf(stderr, "--- Capability serialization failed.\n");
+			fprintf(stderr, "--- Capability was: "); capability_debug(srv);
+			return -1;
+		}
+		/* fprintf(stderr, "--- Serialized.\n"); */
+
+		/* fprintf(stderr, "--- Trying to register that service...\n"); */
+		result = service_create(srv);
+		if (result != SUCCESS) {
+			unlink(XCHANGE_SERVICE); // Service not registered but cap already serialized.
+		}
+		if (result == SERVICE_EXISTS) {
+			fprintf(stderr, "--- Service does already exists.\n"
+					"--- You have to try to recover a capability, a serialized capability, or delete it from ZK manually.\n");
+		} else if (result != SUCCESS) {
+			fprintf(stderr, "--- Service creation somehow failed. Nothing we can do now.\n");
+			return -1;
+		}
+	}
+
+	fprintf(stderr, "--- Got service capability.\n"
+			"--- Is: "); capability_debug(srv);
+
+	if ((result = service_login(srv)) != SUCCESS) {
+		fprintf(stderr, "--- Somehow failed to update data in ZK. Diagnose manually.\n");
+		return 1;
+	}
+	fprintf(stderr, "--- Service ready to use: "); capability_debug(srv);
+
 	void **short_items = NULL, **long_items = NULL;
 	uint32_t *short_sizes, *long_sizes;
 	int num_items;
-	uint16_t from, num_short, num_long;
+	uint16_t num_short, num_long;
+	Capability from;
+
+	void *ack_array[1];
+	uint32_t ack_length_array[1];
+	ack_array[0] = ripc_buf_alloc(4);
+	strncpy((char *)ack_array[0], "ACK", 3);
+	ack_length_array[0] = 4; // + \0
 
 	while(true) {
-		DEBUG("Waiting for message");
-		num_items = ripc_receive(
-				4,
+		num_items = ripc_receive2(
+				srv,
 				&from,
 				&short_items,
 				&short_sizes,
@@ -39,8 +98,50 @@ int main(void) {
 				&long_items,
 				&long_sizes,
 				&num_long);
-		printf("Received message: %d: %s\n", *(int *)short_items[0], (char *)short_items[1]);
+
+		printf("Received message. "
+			"Number of items: '%d' ('%d' s, '%d' l). "
+			"Text: '%s'.\n",
+			num_items,
+			num_short,
+			num_long,
+			(char *)short_items[0]);
+
+		result = ripc_send_short2(
+			srv,
+			&from,
+			ack_array,
+			ack_length_array,
+			1,
+			NULL,
+			NULL,
+			0);
+
 		ripc_buf_free(short_items[0]);
 	}
-	return EXIT_SUCCESS;
+
+	ripc_buf_free(ack_array[0]);
+
+
+//	ripc_register_service_id(4);
+//	void **short_items = NULL, **long_items = NULL;
+//	uint32_t *short_sizes, *long_sizes;
+//	int num_items;
+//	uint16_t from, num_short, num_long;
+//
+//	while(true) {
+//		DEBUG("Waiting for message");
+//		num_items = ripc_receive(
+//				4,
+//				&from,
+//				&short_items,
+//				&short_sizes,
+//				&num_short,
+//				&long_items,
+//				&long_sizes,
+//				&num_long);
+//		printf("Received message: %d: %s\n", *(int *)short_items[0], (char *)short_items[1]);
+//		ripc_buf_free(short_items[0]);
+//	}
+//	return EXIT_SUCCESS;
 }

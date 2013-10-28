@@ -122,12 +122,13 @@ int service_login(Capability cap)
 		return result;
 	}
 
-	result = capability_set_sendctx(cap);
-	if (result != SUCCESS) {
-		fprintf(stderr, "service_login(): "
-				"Got hardware info but failed to prepare addressing info.\n");
-		return result;
-	}
+	// Included in alloc_q_state which is called by recvctx
+	/* result = capability_set_sendctx(cap); */
+	/* if (result != SUCCESS) { */
+		/* fprintf(stderr, "service_login(): " */
+				/* "Got hardware info but failed to prepare addressing info.\n"); */
+		/* return result; */
+	/* } */
 
 	result = zka_set_address(cap);
 	if (result != SUCCESS) {

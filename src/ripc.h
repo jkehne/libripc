@@ -88,6 +88,17 @@ uint8_t ripc_receive(
 		uint16_t *num_long_items
 		);
 
+uint8_t ripc_receive2(
+		Capability local,
+		Capability *remote,
+		void ***short_items,
+		uint32_t **short_item_sizes,
+		uint16_t *num_short_items,
+		void ***long_items,
+		uint32_t **long_item_sizes,
+		uint16_t *num_long_items
+		);
+
 #ifdef __cplusplus
 } //extern "C"
 #endif

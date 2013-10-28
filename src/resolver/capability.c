@@ -39,7 +39,9 @@ Capability capability_of_struct(struct capability *ptr)
 size_t next_free_slot()
 {
 	// TODO: freed capability can be reused. we might not want this to happen.
-	return capability_of_struct(NULL);
+	size_t result = capability_of_struct(NULL);
+	DEBUG("next_free_slot() is '%d'", result);
+	return result;
 }
 
 int capability_exists(Capability cap, const char *func_name)
@@ -110,6 +112,8 @@ struct capability *capability_allocate()
 		return NULL;
 	}
 
+	DEBUG("Allocated memory, now initializing it.");
+
 	memset(result, 0, sizeof(struct capability));
 
 	return result;
@@ -158,7 +162,8 @@ Capability capability_create(const char* servicename)
 	strncpy(caps[cap]->name, servicename, LEN_SERVICE_NAME);
 	strrand(caps[cap]->pass, LEN_SERVICE_PASS);
 	capability_set_recvctx(cap);
-	capability_set_sendctx(caps[cap]);
+	// TODO: Currently done by recvctx
+	/* capability_set_sendctx(caps[cap]); */
 
 	return cap;
 }
@@ -277,15 +282,39 @@ int capability_auth(Capability cap)
  */
 int capability_set_recvctx(Capability cap)
 {
+	DEBUG("For cap '%d'.", cap);
+
 	if (capability_exists(cap, "capability_set_recvctx") != SUCCESS) {
 		return GENERIC_ERROR;
 	}
 
+	struct capability *ptr = capability_get(cap);
+
+	DEBUG("Creating contexts to hold queue state.", cap);
+	ptr->send = malloc(sizeof(struct context_sending));
+	ptr->recv = malloc(sizeof(struct context_receiving));
+	memset(ptr->send, 0, sizeof(struct context_sending));
+	memset(ptr->recv, 0, sizeof(struct context_receiving));
+
+	DEBUG("Allocating queue state for cap '%d'.", cap);
 	/* FIXME: alloc_queue_state2() must not re-alloc if already existing. */
 	alloc_queue_state2(caps[cap]);
 
+	DEBUG("Done.", cap);
+
 	return SUCCESS;
 }
+
+/* int capability_set_sendctx(Capability cap) */
+/* { */
+	/* if (capability_exists(cap, "capability_set_sendctx") != SUCCESS) { */
+		/* return GENERIC_ERROR; */
+	/* } */
+
+	/* fprintf(stderr, "FIXME: missing capability_set_sendctx() \n"); */
+
+	/* return SUCCESS; */
+/* } */
 
 int capability_clear_recvctx(Capability cap)
 {
@@ -298,16 +327,6 @@ int capability_clear_recvctx(Capability cap)
 	return SUCCESS;
 }
 
-int capability_set_sendctx(Capability cap)
-{
-	if (capability_exists(cap, "capability_set_sendctx") != SUCCESS) {
-		return GENERIC_ERROR;
-	}
-
-	fprintf(stderr, "FIXME: missing capability_set_sendctx() \n");
-
-	return SUCCESS;
-}
 
 int capability_clear_sendctx(struct capability *ptr)
 {
