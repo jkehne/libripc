@@ -52,7 +52,10 @@ uint8_t init() {
 
         resolver_init();
 
-	name_servers_set("127.0.0.1:2181");
+	/* FIXME */
+	name_servers_set("i30pc72.ibds.kit.edu:2181,"
+			 "i30pc73.ibds.kit.edu:2181,"
+			 "i30pc74.ibds.kit.edu:2181");
 
         return 0;
 
