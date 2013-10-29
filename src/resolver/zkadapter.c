@@ -160,9 +160,11 @@ int zka_wget(const char *path, struct capability *ptr, struct zka_watcher_contex
 		return result;
 	}
 
+	/* FIXME: Record is "" (length = 0) if service is offline. -- awaidler, 2013-10-29 */
 	if (zlength != 0 && zlength != length) {
 		fprintf(stderr, "zka_wget(): "
-				"ZK read sucessful but record size invalid.\n");
+				"ZK read sucessful but record size invalid "
+				"(service offline?) -- FIXME\n");
 		return GENERIC_ERROR;
 	}
 
