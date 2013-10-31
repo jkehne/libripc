@@ -131,6 +131,11 @@ void capability_free(Capability cap)
 	 *       ripc_receive2() can return an already existing cap,
 	 *       probably to another thread.
 	 *       ==> unexpected behaviour
+	 *
+	 * TODO: Caps that are updated automatically have to be passed to
+	 *       service_update_disable() before passing them to this method
+	 *       (else: SEGFAULT). Fix this by checking zka wctx and doing it
+	 *       automatically, if necessary.
 	 */
 	free(caps[cap]);
 	caps[cap] = NULL;
