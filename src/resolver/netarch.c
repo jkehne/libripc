@@ -42,7 +42,9 @@ int netarch_store_sendctx_in_cap(struct capability *ptr, struct netarch_address_
 
 int netarch_read_sendctx_from_cap(struct capability *ptr, struct netarch_address_record *data)
 {
-	data->lid = context.na.lid;
+	// FIXME: might be NULL  -- awaidler, 2013-11-05
+
+	data->lid = context.na.lid; // FIXME: Take LID from sendctx as well. Might not be a cap created by this process.  -- awaidler, 2013-11-05
 	data->qp_num = ptr->send->na.qp_num;
 
 	DEBUG("Netarch Record '%p' is { '%d', '%d' }", data, data->lid, data->qp_num);

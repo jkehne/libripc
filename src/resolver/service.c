@@ -86,6 +86,17 @@ int service_create(Capability cap)
 		return result;
 	}
 
+	/* FIXME: Cap might not contain sendctx/recvctx
+	 *        e.g. c = cap_create(); serialize(c, "f"); c = deserialize("f"), serv_create(c)
+	 *        but these sender/receiver contexts are required
+	 *        to set an initial address.
+	 *        solution: set context like in serv_login()  -- awaidler, 2013-11-05
+	 *
+	 *        maybe a better solution:
+	 *        * deserialize() sets local address, OR
+	 *        * serialize() stores address (data that would written into znode)
+	 */
+
 	result = zka_service_create(cap);
 	if (result == SERVICE_EXISTS) {
 		fprintf(stderr, "service_create(): "
