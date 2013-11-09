@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#define OLD_RESOLVER 1
 #define NUM_ROUNDS 10000
 #define PACKET_SIZE RECV_BUF_SIZE - 100
 #define WORDS_PER_PACKET 1
