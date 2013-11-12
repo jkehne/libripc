@@ -85,6 +85,16 @@ int main(void) {
 	int num_items;
 	uint16_t num_short, num_long;
 
+	void *msg_array[1];
+	uint32_t length_array[1];
+	uint32_t packet_size = 4;
+
+	msg_array[0] = ripc_buf_alloc(packet_size);
+	memset(msg_array[0], 0, packet_size);
+
+	strcpy((char*)msg_array[0], "ACK");
+	length_array[0] = packet_size;
+
 	while(true) {
 #ifdef OLD_RESOLVER
 		uint16_t from;
@@ -97,6 +107,26 @@ int main(void) {
 				&long_items,
 				&long_sizes,
 				&num_long);
+
+		/*
+		printf("Received and ack'ed message. "
+			"Number of items: '%d' ('%d' s, '%d' l). "
+			"Text: %d\n",
+			num_items,
+			num_short,
+			num_long,
+			* ((uint32_t *)short_items[0]));
+			*/
+
+		int result = ripc_send_short(
+			SERVER_SERVICE_ID,
+			from,
+			msg_array,
+			length_array,
+			1,
+			NULL,
+			NULL,
+			0);
 #else
 		Capability from;
 		num_items = ripc_receive2(
@@ -108,17 +138,31 @@ int main(void) {
 				&long_items,
 				&long_sizes,
 				&num_long);
-#endif
 
-		printf("Received message. "
+		/*
+		printf("Received and ack'ed message. "
 			"Number of items: '%d' ('%d' s, '%d' l). "
-			"Text: %s",
+			"Text: %d\n",
 			num_items,
 			num_short,
 			num_long,
-			(char *)short_items[0]);
+			* ((uint32_t *)short_items[0]));
+			*/
+
+		int result = ripc_send_short2(
+			srv,
+			from,
+			msg_array,
+			length_array,
+			1,
+			NULL,
+			NULL,
+			0);
+		capability_free(from); // Handled.
+#endif
 
 		ripc_buf_free(short_items[0]);
+		free(short_items);
 	}
 
 	/* ripc_buf_free(ack_array[0]); */

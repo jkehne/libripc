@@ -137,6 +137,8 @@ void capability_free(Capability cap)
 	 *       (else: SEGFAULT). Fix this by checking zka wctx and doing it
 	 *       automatically, if necessary.
 	 */
+	capability_clear_sendctx(caps[cap]);
+	/* capability_clear_recvctx(caps[cap]); FIXME -- awaidler, 2013-11-10 */
 	free(caps[cap]);
 	caps[cap] = NULL;
 }
@@ -163,6 +165,15 @@ Capability capability_create_empty()
 
 Capability capability_from_sender(const char* sendername, struct netarch_address_record *data)
 {
+// TODO: Removed feature to avoid cap duplication.
+// User is now completely responsible to avoid cap buffer overflow (due to too many caps).
+// Maybe extract this code into a capability_equals(Cap lhs, Cap rhs)
+// so that user can "merge" messages sent from the same source. -- awaidler, 2013-11-09
+//
+// TODO: Actually, in case of only few references, this search saves MUCH
+// time because we do not have to repeatedly call malloc() and free()
+//  -- awaidler, 2013-11-09
+
 	/* Do not create another capability if we already have one. */
 	Capability i = 0;
 	for (i = 0; i < MAX_CAPS; ++i) {
@@ -184,7 +195,7 @@ Capability capability_from_sender(const char* sendername, struct netarch_address
 	}
 
 	DEBUG("Did not find an existing capability for '%s' with lid='%d' and qpn='%d'",
-			sendername, data->lid, data->qpn);
+			sendername, data->lid, data->qp_num);
 
 	Capability cap = capability_create_empty();
 	if (cap == INVALID_CAPABILITY) {
@@ -384,11 +395,22 @@ int capability_clear_recvctx(Capability cap)
 
 int capability_clear_sendctx(struct capability *ptr)
 {
-	/* if (capability_exists(cap, "capability_clear_sendctx") != SUCCESS) { */
-		/* return GENERIC_ERROR; */
-	/* } */
+	/* TODO: Proper error handling. This was fixed last minute.  -- awaidler, 2013-11-09 */
 
-	fprintf(stderr, "FIXME: missing capability_clear_sendctx() \n");
+	if (!ptr->send) {
+		return SUCCESS;
+	}
+
+	if (ptr->send->na.cq) {
+		ibv_destroy_cq(ptr->send->na.cq);
+	}
+
+	if (ptr->send->na.ah) {
+		ibv_destroy_ah(ptr->send->na.ah);
+	}
+
+	free(ptr->send);
+	ptr->send = 0;
 
 	return SUCCESS;
 }
