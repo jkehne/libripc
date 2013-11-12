@@ -1,5 +1,6 @@
 /*  Copyright 2011, 2012 Jens Kehne
  *  Copyright 2012 Jan Stoess, Karlsruhe Institute of Technology
+ *  Copyright 2013 Andreas Waidler
  *
  *  LibRIPC is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License as published by the
@@ -20,24 +21,137 @@
 #include "../src/ripc.h"
 #include "config.h"
 #include "common.h"
+#include <pthread.h>
 
-int main(void) {
-	ripc_register_service_id(1);
-	int i, len;
-	char *msg = "Hello World!";
-	char *tmp_msg = ripc_buf_alloc(strlen(msg) + 10);
-	void *msg_array[2];
-	msg_array[0] = ripc_buf_alloc(sizeof(i));
-	msg_array[1] = ripc_buf_alloc(strlen(msg));
-	size_t length_array[2];
-	for (i = 0; true; ++i) {
-		*(int *)msg_array[0] = i;
-		length_array[0] = sizeof(i);
-		//msg_array[1] = (void *)msg;
-		strcpy((char *)msg_array[1],msg);
-		length_array[1] = strlen(msg);
-		ripc_send_short(1, 4, msg_array, length_array, 2, NULL, NULL, 0);
-		sleep(1);
+pthread_t display_thread;
+
+#define PROMPT "> "
+
+char name[1024] = { 0 };
+
+void pp() {
+	printf("%s%s", name, PROMPT);
+	fflush(stdout);
+}
+
+void onChange(Capability srv)
+{
+	fprintf(stderr, "\r!!! Service migrated: ");
+	capability_debug(srv);
+	pp();
+}
+
+Capability us = INVALID_CAPABILITY;
+
+void *display(void *arg)
+{
+	Capability srv;
+
+	while(true) {
+		void **short_items = NULL, **long_items = NULL;
+		uint32_t *short_sizes, *long_sizes;
+		int num_items;
+		uint16_t num_short, num_long;
+
+		ripc_receive2(
+				us,
+				&srv,
+				&short_items,
+				&short_sizes,
+				&num_short,
+				&long_items,
+				&long_sizes,
+				&num_long);
+
+		printf("\r%s", (char *)short_items[0]);
+		pp();
+
+		ripc_buf_free(short_items[0]);
 	}
-	return EXIT_SUCCESS;
+}
+
+int main(void)
+{
+	ripc_init();
+	sleep(1);
+
+	fprintf(stderr, "LibRIPC simple message sending client.\n");
+
+	fprintf(stderr, "--- Creating capability for local process.\n");
+	snprintf(name, 1023, "User%d", rand() % 100);
+	us = capability_create(name);
+	if (us == INVALID_CAPABILITY) {
+		fprintf(stderr, "--- Could not create capability for us.\n");
+		return 1;
+	}
+
+	fprintf(stderr, "--- Okay, so we are: "); capability_debug(us);
+
+
+	fprintf(stderr, "--- Looking up destination service \"%s\".\n", XCHANGE_SERVICE);
+
+	Capability srv;
+	while ((srv = service_lookup(XCHANGE_SERVICE, onChange)) == INVALID_CAPABILITY) {
+		const uint8_t t = 10;
+		fprintf(stderr, "--- Lookup failed, trying again in %d seconds.\n", t);
+		sleep(t);
+	}
+
+	fprintf(stderr, "--- Server found: "); capability_debug(srv);
+
+	pthread_create(&display_thread, NULL, &display, NULL);
+
+	void *msg_array[1];
+	uint32_t length_array[1];
+	uint32_t packet_size = 100;
+	char input[1024];
+
+	do {
+		msg_array[0] = ripc_buf_alloc(packet_size);
+		memset(msg_array[0], 0, packet_size);
+
+		pp();
+		fgets(input, packet_size, stdin);
+		DEBUG("Message to be sent: '%s'", input);
+
+		strncpy((char *)msg_array[0], input, packet_size - 1);
+		length_array[0] = strlen(msg_array[0]) + 1; // + \0
+
+		DEBUG("--- Sending message...");
+
+		int result = ripc_send_short2(
+			us,
+			srv,
+			msg_array,
+			length_array,
+			1,
+			NULL,
+			NULL,
+			0);
+
+
+		DEBUG("--- LibRIPC returned '%d'.", result);
+
+		ripc_buf_free(msg_array[0]);
+	} while (true);
+
+	return 0;
+
+	/* int i, len; */
+	/* char *msg = "Hello World!"; */
+	/* char *tmp_msg = ripc_buf_alloc(strlen(msg) + 10); */
+	/* void *msg_array[2]; */
+	/* msg_array[0] = ripc_buf_alloc(sizeof(i)); */
+	/* msg_array[1] = ripc_buf_alloc(strlen(msg)); */
+	/* size_t length_array[2]; */
+	/* for (i = 0; true; ++i) { */
+		/* *(int *)msg_array[0] = i; */
+		/* length_array[0] = sizeof(i); */
+		/* //msg_array[1] = (void *)msg; */
+		/* strcpy((char *)msg_array[1],msg); */
+		/* length_array[1] = strlen(msg); */
+		/* ripc_send_short(1, 4, msg_array, length_array, 2, NULL, NULL, 0); */
+		/* sleep(1); */
+	/* } */
+	/* return EXIT_SUCCESS; */
 }

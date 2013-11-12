@@ -1,0 +1,13 @@
+/Makefile
+/config.h
+/stamp-h1
+.deps
+.libs
+/autom4te.cache/**.o
+/build
+/libresolver.la
+/address.lo
+/base64.lo
+/capability.lo
+/service.lo
+/zkadapter.lo

@@ -1,1 +1,16 @@
-Sample readme file for test project.
+You have to set up ZooKeeper before you can use the new resolver.
+
+LibRIPC uses base directory (znode) "/libRIPC". Znode creation is possible for
+all processes in the network. Deleting them or modifying the base directory
+should only be possible for administrators. Thus, create the base directory with
+credentials for admin $user with passphrase $pass (digest auth scheme):
+
+	CRED=`echo -n "$user:$pass" | openssl dgst -binary -sha1 | openssl base64`
+
+Or, alternatively:
+
+	CRED=`echo -n "$user:$pass" | sha1sum | cut -d\  -f1 | xxd -r -p | base64`
+
+And in zkCli (ZooKeeper "Shell"):
+
+	create /libRIPC libRIPC_base_dir digest:$user:$CRED:crdwa,world:anyone:rc

@@ -2,6 +2,7 @@
 .project
 .cproject
 .settings
+.*.swp
 /install
 /config.status
 /libtool

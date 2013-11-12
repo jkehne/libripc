@@ -1,5 +1,6 @@
 /*  Copyright 2011, 2012 Jens Kehne
  *  Copyright 2012 Jan Stoess, Karlsruhe Institute of Technology
+ *  Copyright 2013 Andreas Waidler
  *
  *  LibRIPC is free software: you can redistribute it and/or modify it under
  *  the terms of the GNU Lesser General Public License as published by the
@@ -16,10 +17,15 @@
  */
 #include <../common.h>
 #include <../resources.h>
+#include "../resolver/capability.h"
 
 struct service_id rdma_service_id;
 pthread_mutex_t rdma_connect_mutex;
 pthread_t async_event_logger_thread;
+
+uint32_t capability_get_qkey(struct capability *cap) {
+	return cap->send->is_multicast ? 0xffff : (uint32_t) 'Q' ; // TODO: Generate Q_Key from name.
+}
 
 bool join_and_attach_multicast(struct service_id *service_id) {
 	struct mcast_parameters mcg_params;
@@ -645,4 +651,156 @@ void dump_wc(struct ibv_wc *wc) {
 	ERROR("Immediate value: %#x", wc->imm_data);
 	ERROR("Destination LID path bits: %#x", wc->dlid_path_bits);
 	ERROR("Byte length: %u", wc->byte_len);
+}
+
+void alloc_queue_state2(struct capability *cap) {
+	uint32_t i;
+
+	if (!cap->recv->na.no_cchan) { //completion channel is optional
+		cap->recv->na.cchan =
+			ibv_create_comp_channel(context.na.device_context);
+		if (cap->recv->na.cchan == NULL) {
+			ERROR("Failed to allocate completion event channel!");
+			goto error;
+			return;
+		} else {
+			DEBUG("Allocated completion event channel");
+		}
+	} else {
+		/* DEBUG("Skipping allocation of completion event channel for service ID %u", service_id->number); */
+		DEBUG("Skipping allocation of completion event channel for internal cap %p", cap);
+	}
+
+	cap->recv->na.cq = ibv_create_cq(
+                context.na.device_context,
+                100,
+                NULL,
+                cap->recv->na.no_cchan ? NULL : cap->recv->na.cchan,
+                0);
+	if (cap->recv->na.cq == NULL) {
+		ERROR("Failed to allocate receive completion queue!");
+		goto error;
+		return;
+	} else {
+		DEBUG("Allocated receive completion queue: %u", (cap->recv->na.cq)->handle);
+	}
+
+	cap->send->na.cq = ibv_create_cq(
+                context.na.device_context,
+                100,
+                NULL,
+                NULL,
+                0);
+	if (cap->send->na.cq == NULL) {
+		ERROR("Failed to allocate send completion queue!");
+		goto error;
+		return;
+	} else {
+		DEBUG("Allocated send completion queue: %u", (cap->send->na.cq)->handle);
+	}
+
+	ibv_req_notify_cq(cap->recv->na.cq, 0);
+
+	struct ibv_qp_init_attr init_attr = {
+		.send_cq = cap->send->na.cq,
+		.recv_cq = cap->recv->na.cq,
+		.cap     = {
+			.max_send_wr  = NUM_RECV_BUFFERS * 200,
+			.max_recv_wr  = NUM_RECV_BUFFERS * 200,
+			.max_send_sge = 10,
+			.max_recv_sge = 10
+		},
+		.qp_type = IBV_QPT_UD,
+		.sq_sig_all = 0
+	};
+	cap->recv->na.qp = ibv_create_qp(
+                context.na.pd,
+                &init_attr);
+	if (cap->recv->na.qp == NULL) {
+		ERROR("Failed to allocate queue pair!");
+		goto error;
+		return;
+	} else {
+		/* Copy queue pair number from receiver context to sender
+		 * context as well. We do not want to lose this information
+		 * when stripping receiver rights from this capability. */
+		cap->send->na.qp_num = (cap->recv->na.qp)->qp_num;
+		DEBUG("Allocated queue pair: %u", cap->send->na.qp_num);
+	}
+
+	struct ibv_qp_attr attr;
+	attr.qp_state = IBV_QPS_INIT;
+	attr.pkey_index = 0;
+	attr.port_num = context.na.port_num;
+	attr.qkey = capability_get_qkey(cap);
+
+	if (ibv_modify_qp(cap->recv->na.qp,
+                          &attr,
+                          IBV_QP_STATE		|
+                          IBV_QP_PKEY_INDEX	|
+                          IBV_QP_PORT			|
+                          IBV_QP_QKEY			)) {
+		ERROR("Failed to modify QP state to INIT");
+		goto error;
+		return;
+	} else {
+		DEBUG("Modified state of QP %u to INIT", cap->send->na.qp_num);
+	}
+
+	attr.qp_state = IBV_QPS_RTR;
+	if (ibv_modify_qp(cap->recv->na.qp, &attr, IBV_QP_STATE)) {
+		ERROR("Failed to modify QP state to RTR");
+		goto error;
+		return;
+	} else {
+		DEBUG("Modified state of QP %u to RTR", cap->send->na.qp_num);
+	}
+
+	attr.qp_state = IBV_QPS_RTS;
+	attr.sq_psn = 0;
+	if (ibv_modify_qp(cap->recv->na.qp, &attr, IBV_QP_STATE | IBV_QP_SQ_PSN)) {
+		ERROR("Failed to modify QP state to RTS");
+		goto error;
+		return;
+	} else {
+		DEBUG("Modified state of QP %u to RTS", cap->send->na.qp_num);
+	}
+
+#ifdef HAVE_DEBUG
+	ibv_query_qp(cap->recv->na.qp, &attr, ~0, &init_attr);
+	DEBUG("qkey of QP %u is %#x", cap->send->na.qp_num, attr.qkey);
+#endif
+
+	if (cap->send->is_multicast)
+		if (!join_and_attach_multicast(cap))
+			goto error;
+
+	for (i = 0; i < NUM_RECV_BUFFERS; ++i) {
+		post_new_recv_buf(cap->recv->na.qp);
+	}
+
+	return;
+
+error:
+	if (cap->recv->na.qp) {
+		ibv_destroy_qp(cap->recv->na.qp);
+		cap->recv->na.qp = NULL;
+	}
+	if (cap->recv->na.cq) {
+		ibv_destroy_cq(cap->recv->na.cq);
+		cap->recv->na.cq = NULL;
+	}
+	if (cap->send->na.cq) {
+		ibv_destroy_cq(cap->send->na.cq);
+		cap->send->na.cq = NULL;
+	}
+	if (cap->recv->na.cchan) {
+		ibv_destroy_comp_channel(cap->recv->na.cchan);
+		cap->recv->na.cchan = NULL;
+	}
+	// TODO: Really unneeded?
+	/* if (service_id->na.mcast_ah) { */
+		/* ibv_destroy_ah(service_id->na.mcast_ah); */
+		/* service_id->na.mcast_ah = NULL; */
+	/* } */
 }

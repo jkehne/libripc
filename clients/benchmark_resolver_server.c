@@ -23,18 +23,14 @@
 #include "config.h"
 #include "common.h"
 
-struct cap_list_node {
-	Capability cap;
-	struct cap_list_node *next;
-} head = { .cap = INVALID_CAPABILITY, .next = NULL };
-
-struct cap_list_node *last = &head;
-
 int main(void) {
-	int result = SUCCESS;
 	ripc_init();
 	sleep(1);
 
+#ifdef OLD_RESOLVER
+	ripc_register_service_id(SERVER_SERVICE_ID);
+#else
+	int result = SUCCESS;
 	fprintf(stderr, "LibRIPC message service %s.\n", XCHANGE_SERVICE);
 
 	fprintf(stderr, "--- Trying to deserialize old capability...\n");
@@ -82,15 +78,57 @@ int main(void) {
 		return 1;
 	}
 	fprintf(stderr, "--- Service ready to use: "); capability_debug(srv);
+#endif
 
 	void **short_items = NULL, **long_items = NULL;
 	uint32_t *short_sizes, *long_sizes;
 	int num_items;
 	uint16_t num_short, num_long;
-	Capability pre_from = INVALID_CAPABILITY;
-	Capability from;
+
+	void *msg_array[1];
+	uint32_t length_array[1];
+	uint32_t packet_size = 4;
+
+	msg_array[0] = ripc_buf_alloc(packet_size);
+	memset(msg_array[0], 0, packet_size);
+
+	strcpy((char*)msg_array[0], "ACK");
+	length_array[0] = packet_size;
 
 	while(true) {
+#ifdef OLD_RESOLVER
+		uint16_t from;
+		num_items = ripc_receive(
+				SERVER_SERVICE_ID,
+				&from,
+				&short_items,
+				&short_sizes,
+				&num_short,
+				&long_items,
+				&long_sizes,
+				&num_long);
+
+		/*
+		printf("Received and ack'ed message. "
+			"Number of items: '%d' ('%d' s, '%d' l). "
+			"Text: %d\n",
+			num_items,
+			num_short,
+			num_long,
+			* ((uint32_t *)short_items[0]));
+			*/
+
+		int result = ripc_send_short(
+			SERVER_SERVICE_ID,
+			from,
+			msg_array,
+			length_array,
+			1,
+			NULL,
+			NULL,
+			0);
+#else
+		Capability from;
 		num_items = ripc_receive2(
 				srv,
 				&from,
@@ -101,55 +139,30 @@ int main(void) {
 				&long_sizes,
 				&num_long);
 
-		printf("Received message. "
+		/*
+		printf("Received and ack'ed message. "
 			"Number of items: '%d' ('%d' s, '%d' l). "
-			"Text: %s",
+			"Text: %d\n",
 			num_items,
 			num_short,
 			num_long,
-			(char *)short_items[0]);
+			* ((uint32_t *)short_items[0]));
+			*/
 
-		void *msg_array[1];
-		uint32_t length_array[1];
-		uint32_t packet_size = 100;
-
-		msg_array[0] = ripc_buf_alloc(packet_size);
-		memset(msg_array[0], 0, packet_size);
-		snprintf(msg_array[0], packet_size, "%s> %s",
-				capability_get_service_name(from),
-				(char*) short_items[0]);
-		length_array[0] = strlen(msg_array[0]) + 1; // + \0
-
-		struct cap_list_node *it = head.next;
-		while (it != NULL) {
-			if (it->cap != from) { /* Skip sender of that message. */
-				result = ripc_send_short2(
-					srv,
-					it->cap,
-					msg_array,
-					length_array,
-					1,
-					NULL,
-					NULL,
-					0);
-			}
-			it = it->next;
-		}
-
-		it = head.next;
-		while (it != NULL && it->cap != from) {
-			it = it->next;
-		}
-
-		if (!it) {
-			/* Cap not in list, so this won't create a duplicate. */
-			last->next = malloc(sizeof(struct cap_list_node));
-			last->next->cap = from;
-			last->next->next = NULL;
-			last = last->next;
-		}
+		int result = ripc_send_short2(
+			srv,
+			from,
+			msg_array,
+			length_array,
+			1,
+			NULL,
+			NULL,
+			0);
+		capability_free(from); // Handled.
+#endif
 
 		ripc_buf_free(short_items[0]);
+		free(short_items);
 	}
 
 	/* ripc_buf_free(ack_array[0]); */
@@ -177,3 +190,4 @@ int main(void) {
 //	}
 //	return EXIT_SUCCESS;
 }
+

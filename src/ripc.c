@@ -41,7 +41,7 @@ uint8_t init() {
 	memset(context.remotes, 0, UINT16_MAX * sizeof(struct remote_context *));
 
         netarch_init();
-                
+
         pthread_mutex_init(&services_mutex, NULL);
 	pthread_mutex_init(&remotes_mutex, NULL);
 	pthread_mutex_init(&used_list_mutex, NULL);
@@ -52,7 +52,11 @@ uint8_t init() {
 
         resolver_init();
 
-       
+	/* FIXME */
+	name_servers_set("i30pc72.ibds.kit.edu:2181,"
+			 "i30pc73.ibds.kit.edu:2181,"
+			 "i30pc74.ibds.kit.edu:2181");
+
         return 0;
 
 }
@@ -127,4 +131,8 @@ uint8_t ripc_register_multicast_service_id(int service_id) {
 	pthread_mutex_unlock(&services_mutex);
 	return true;
 
+}
+
+uint8_t ripc_init() {
+	return init();
 }
